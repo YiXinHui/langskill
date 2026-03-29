@@ -24,7 +24,7 @@ description: |
 | 感觉做不动、不确定AI适不适合自己、「AI跟我有什么关系」「我该不该学AI」 | `/lang-mirror` | 老板自检：企业AI化本质是老板AI化，先照照镜子 |
 | 产品线太多/太少、定价、包装、「我该卖什么」「怎么定价」 | `/lang-positioning` | 产品定位：从四层决策模型到三条产品线的精简之路 |
 | 怎么获客、内容策略、流量问题、「没有客户」「内容怎么做」 | `/lang-traffic` | 流量获客：每一家公司本质上都是内容公司 |
-| 安装意心会ASOP、部署内部skill、「安装yx」「部署ASOP」 | `/lang-yx-install` | 从飞书云空间一键下载部署意心会内部ASOP skill |
+| 安装意心会ASOP、部署内部skill、「安装yi」「部署ASOP」 | `/lang-yi-install` | 从飞书云空间一键下载部署意心会内部ASOP skill |
 
 ---
 

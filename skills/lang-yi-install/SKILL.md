@@ -1,13 +1,13 @@
 ---
-name: lang-yx-install
+name: lang-yi-install
 description: |
   意心会内部 ASOP Skill 安装器。从飞书云空间下载并部署 skill/tool 到本地。
-  触发方式：/lang-yx-install、「安装意心会skill」「部署内部skill」「同步飞书skill」
+  触发方式：/lang-yi-install、「安装意心会skill」「部署内部skill」「同步飞书skill」
   YiXinHui internal ASOP skill installer. Downloads and deploys skills/tools from Feishu Drive.
-  Trigger: /lang-yx-install, "install yx skills", "deploy internal skills", "sync feishu skills"
+  Trigger: /lang-yi-install, "install yi skills", "deploy internal skills", "sync feishu skills"
 ---
 
-# lang-yx-install — 意心会内部 Skill 安装器
+# lang-yi-install — 意心会内部 Skill 安装器
 
 从飞书云空间自动下载并部署意心会内部 ASOP skill 到本地 `~/.claude/` 目录。
 
@@ -24,7 +24,7 @@ description: |
 
 ## 使用方式
 
-用户调用 `/lang-yx-install` 后：
+用户调用 `/lang-yi-install` 后：
 
 1. 如果用户提供了飞书文件夹 URL，使用该 URL
 2. 如果没有提供，使用默认 URL（YiXinSKILL）
@@ -88,9 +88,9 @@ import sys
 
 SKILLS_DIR = os.path.expanduser("~/.claude/skills")
 TOOLS_DIR = os.path.expanduser("~/.claude/tools")
-META_DIR = os.path.expanduser("~/.claude/skills/.yx-meta")
+META_DIR = os.path.expanduser("~/.claude/skills/.yi-meta")
 
-# 根目录文件（放到 .yx-meta/）
+# 根目录文件（放到 .yi-meta/）
 ROOT_META_FILES = {"README.md", "VERSION", "setup.md", "publish.sh"}
 
 def lark_list_folder(folder_token, page_token=None):
@@ -146,7 +146,7 @@ def determine_target_dir(relative_path):
     """根据顶层目录决定本地映射路径"""
     parts = relative_path.strip("/").split("/")
     if len(parts) == 1 and parts[0] in ROOT_META_FILES:
-        # 根目录元文件 -> .yx-meta/
+        # 根目录元文件 -> .yi-meta/
         return os.path.join(META_DIR, parts[0])
 
     top_dir = parts[0] if len(parts) > 1 else ""
@@ -158,7 +158,7 @@ def determine_target_dir(relative_path):
         # tools/ 下的内容 -> ~/.claude/tools/
         return os.path.join(TOOLS_DIR, "/".join(parts[1:]))
     else:
-        # 其他文件也放到 .yx-meta/
+        # 其他文件也放到 .yi-meta/
         return os.path.join(META_DIR, relative_path)
 
 def crawl_and_download(folder_token, relative_path=""):
@@ -247,9 +247,9 @@ fi
 
 # 检查 meta 目录
 echo ""
-echo "Meta 目录 (~/.claude/skills/.yx-meta/):"
-if [ -d ~/.claude/skills/.yx-meta ]; then
-  ls -1 ~/.claude/skills/.yx-meta/ 2>/dev/null
+echo "Meta 目录 (~/.claude/skills/.yi-meta/):"
+if [ -d ~/.claude/skills/.yi-meta ]; then
+  ls -1 ~/.claude/skills/.yi-meta/ 2>/dev/null
 else
   echo "  (目录不存在)"
 fi
@@ -266,8 +266,8 @@ echo "安装完成。重启 Claude Code 或新开会话即可使用新 skill。"
 |---|---|
 | `skills/*` | `~/.claude/skills/*` |
 | `tools/*` | `~/.claude/tools/*` |
-| `README.md` / `VERSION` / `setup.md` / `publish.sh` | `~/.claude/skills/.yx-meta/` |
-| 其他文件 | `~/.claude/skills/.yx-meta/` |
+| `README.md` / `VERSION` / `setup.md` / `publish.sh` | `~/.claude/skills/.yi-meta/` |
+| 其他文件 | `~/.claude/skills/.yi-meta/` |
 
 ---
 
