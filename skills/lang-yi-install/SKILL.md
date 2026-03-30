@@ -211,8 +211,7 @@ def determine_target_dir(relative_path):
 
     top_dir = parts[0] if len(parts) > 1 else ""
 
-    # 飞书上 skills 文件夹可能叫 skills-v2（历史原因），统一映射
-    if top_dir in ("skills", "skills-v2"):
+    if top_dir == "skills":
         return os.path.join(SKILLS_DIR, "/".join(parts[1:]))
     elif top_dir == "tools":
         return os.path.join(TOOLS_DIR, "/".join(parts[1:]))
@@ -319,7 +318,7 @@ echo "安装完成。新开会话即可使用 /yi 系列命令。"
 
 | 飞书文件夹中的路径 | 本地目标路径 |
 |---|---|
-| `skills-v2/*` 或 `skills/*` | `~/.claude/skills/*` |
+| `skills/*` | `~/.claude/skills/*` |
 | `tools/*` | `~/.claude/tools/*` |
 | `README.md` / `VERSION` / `setup.md` / `publish.sh` | `~/.claude/skills/.yi-meta/` |
 | 其他文件 | `~/.claude/skills/.yi-meta/` |
@@ -367,5 +366,4 @@ lark-cli drive +download \
 
 - 已有同名文件会被覆盖（等同于"同步最新版"）
 - 不会删除本地已有但飞书上不存在的文件（只做增量覆盖）
-- 飞书上 skills 文件夹可能叫 `skills-v2`（历史原因），脚本自动映射到 `~/.claude/skills/`
 - 下载完成后建议新开会话，让新 skill 生效
