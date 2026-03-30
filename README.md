@@ -5,7 +5,7 @@
 ## 安装
 
 ```bash
-npx skills add YiXinHui/langskill
+npx skills add YiXinHui/langskill --all -y -g
 ```
 
 ## 包含的工具
