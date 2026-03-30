@@ -23,11 +23,7 @@ npx skills remove YiXinHui/langskill
 | `/lang` | **路由入口** | 自动分发到最合适的诊断工具 |
 | `/lang-diagnosis` | 商业诊断 | 问诊/体检两种模式，消解客户伪需求 |
 | `/lang-think` | 狼哥盘认知 | 推理（想法→底层→系统）和推倒（错误认知→翻转→真相） |
-| `/lang-mirror` | 老板自检 | 企业AI化本质是老板AI化，先照镜子 |
-| `/lang-positioning` | 产品定位 | 四层决策模型到三条产品线的精简之路 |
-| `/lang-traffic` | 流量获客 | 每一家公司本质上都是内容公司 |
 | `/lang-yi-install` | 内部Skill安装 | 从飞书云空间一键部署意心会内部ASOP（仅限团队） |
-| `/lang-upgrade` | 升级 | 升级到最新版本 |
 
 ## 核心理念
 

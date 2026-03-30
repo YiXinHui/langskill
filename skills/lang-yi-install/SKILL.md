@@ -13,7 +13,8 @@ description: |
 
 ## 前置条件
 
-- `lark-cli` 已安装（`brew install lark-cli` 或 `npm i -g @anthropic/lark-cli`）
+- `lark-cli` 已安装：`npm install -g @larksuite/cli`
+- `lark-cli config init --new` 已完成初始化
 - `lark-cli auth login` 已完成认证
 - 需要 `drive:drive` scope（读取云空间文件权限）
 - `python3` 可用（用于解析飞书 API 返回的 JSON）
@@ -42,8 +43,10 @@ description: |
 # 检查 lark-cli
 if ! command -v lark-cli &>/dev/null; then
   echo "ERROR: lark-cli 未安装。请先安装："
-  echo "  brew install lark-cli"
-  echo "  或 npm i -g @anthropic/lark-cli"
+  echo "  npm install -g @larksuite/cli"
+  echo "  安装后运行："
+  echo "  lark-cli config init --new"
+  echo "  lark-cli auth login"
   exit 1
 fi
 
@@ -275,7 +278,7 @@ echo "安装完成。重启 Claude Code 或新开会话即可使用新 skill。"
 
 | 错误场景 | 处理方式 |
 |---|---|
-| `lark-cli` 未安装 | 提示安装命令，停止执行 |
+| `lark-cli` 未安装 | 提示 `npm install -g @larksuite/cli`，停止执行 |
 | 未认证 | 提示 `lark-cli auth login`，停止执行 |
 | scope 不足 / Permission denied | 提示用户执行 `lark-cli auth login --scope drive:drive`，停止执行 |
 | 单个文件下载失败 | 打印 WARN，跳过该文件，继续下载其他文件 |
