@@ -23,6 +23,7 @@ npx skills remove YiXinHui/langskill
 | `/lang` | **路由入口** | 自动分发到最合适的诊断工具 |
 | `/lang-diagnosis` | 商业诊断 | 问诊/体检两种模式，消解客户伪需求 |
 | `/lang-think` | 狼哥盘认知 | 推理（想法→底层→系统）和推倒（错误认知→翻转→真相） |
+| `/lang-upgrade` | 升级 | 升级 langskill 到最新版本 |
 | `/lang-yi-install` | 内部Skill安装 | 从飞书云空间一键部署意心会内部ASOP（仅限团队） |
 
 ## 核心理念
