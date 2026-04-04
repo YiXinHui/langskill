@@ -40,7 +40,6 @@ npx skills remove YiXinHui/langskill
 | `/lang-upgrade` | 升级 | 升级 langskill 到最新版本 |
 | `/五台山论道` | 东方论道 | 根据话题推荐东方思想家，模拟多角色对话与交锋 |
 | `/lang-yi-install` | 内部Skill安装 | 从飞书云空间一键部署意心会内部ASOP（仅限团队） |
-| `/五台山论道` | 东方思想家论道 | 根据话题推荐东方思想家，模拟多角色论道对话 |
 
 ## 核心理念
 
