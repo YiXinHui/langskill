@@ -2,6 +2,20 @@
 
 帮中小企业老板和AI咨询顾问做三件事：诊断客户、定产品、做AI化。
 
+## 前置条件
+
+需要 Node.js 环境。Mac 终端安装：
+
+```bash
+# 如果没有 brew，先装 brew
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# 安装 Node.js
+brew install node
+```
+
+安装完成后运行 `node -v` 确认有版本号输出。
+
 ## 安装
 
 ```bash
@@ -24,6 +38,7 @@ npx skills remove YiXinHui/langskill
 | `/lang-diagnosis` | 商业诊断 | 问诊/体检两种模式，消解客户伪需求 |
 | `/lang-think` | 狼哥盘认知 | 推理（想法→底层→系统）和推倒（错误认知→翻转→真相） |
 | `/lang-upgrade` | 升级 | 升级 langskill 到最新版本 |
+| `/五台山论道` | 东方论道 | 根据话题推荐东方思想家，模拟多角色对话与交锋 |
 | `/lang-yi-install` | 内部Skill安装 | 从飞书云空间一键部署意心会内部ASOP（仅限团队） |
 | `/五台山论道` | 东方思想家论道 | 根据话题推荐东方思想家，模拟多角色论道对话 |
 
