@@ -54,10 +54,21 @@ echo "Remote version: $REMOTE_VERSION"
 
 ### Step 5: 备份当前版本
 
+使用清单文件 `.langskill-manifest` 追踪 langskill 管理的 skill 目录。备份清单中的所有目录。
+
 ```bash
 BACKUP_DIR="$HOME/.claude/skills/.langskill-backup-$(date +%Y%m%d-%H%M%S)"
+MANIFEST="$HOME/.claude/skills/.langskill-manifest"
 mkdir -p "$BACKUP_DIR"
-cp -r "$HOME/.claude/skills"/lang* "$BACKUP_DIR/" 2>/dev/null || true
+
+if [ -f "$MANIFEST" ]; then
+  while IFS= read -r skill_dir; do
+    [ -d "$HOME/.claude/skills/$skill_dir" ] && cp -r "$HOME/.claude/skills/$skill_dir" "$BACKUP_DIR/"
+  done < "$MANIFEST"
+else
+  # 首次升级，兜底备份 lang* 目录
+  cp -r "$HOME/.claude/skills"/lang* "$BACKUP_DIR/" 2>/dev/null || true
+fi
 echo "Backup created: $BACKUP_DIR"
 ```
 
@@ -75,9 +86,29 @@ echo "Downloaded to: $TMP_DIR/langskill"
 
 ### Step 7: 替换旧版本
 
+从仓库的 `skills/` 目录动态获取所有 skill 名，逐个替换，并更新清单文件。
+
 ```bash
-rm -rf "$HOME/.claude/skills"/lang*
-cp -r "$TMP_DIR/langskill/skills"/lang* "$HOME/.claude/skills/"
+MANIFEST="$HOME/.claude/skills/.langskill-manifest"
+
+# 读取旧清单，删除旧版 skill 目录
+if [ -f "$MANIFEST" ]; then
+  while IFS= read -r skill_dir; do
+    rm -rf "$HOME/.claude/skills/$skill_dir"
+  done < "$MANIFEST"
+else
+  # 首次升级兜底
+  rm -rf "$HOME/.claude/skills"/lang*
+fi
+
+# 复制仓库中所有 skill 目录，并生成新清单
+> "$MANIFEST"
+for skill_path in "$TMP_DIR/langskill/skills"/*/; do
+  skill_name=$(basename "$skill_path")
+  cp -r "$skill_path" "$HOME/.claude/skills/$skill_name"
+  echo "$skill_name" >> "$MANIFEST"
+done
+
 rm -rf "$TMP_DIR"
 echo "Upgrade completed"
 ```
@@ -87,7 +118,11 @@ echo "Upgrade completed"
 ```bash
 if [ $? -ne 0 ]; then
   echo "ERROR: Upgrade failed, restoring from backup..."
-  rm -rf "$HOME/.claude/skills"/lang*
+  if [ -f "$MANIFEST" ]; then
+    while IFS= read -r skill_dir; do
+      rm -rf "$HOME/.claude/skills/$skill_dir"
+    done < "$MANIFEST"
+  fi
   cp -r "$BACKUP_DIR"/* "$HOME/.claude/skills/"
   echo "Restored from backup"
   exit 1
