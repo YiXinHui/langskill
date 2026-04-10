@@ -23,7 +23,7 @@ if [ -d "$HOME/.claude/skills/lang" ]; then
   echo "Install location: $INSTALL_DIR"
 else
   echo "ERROR: langskill not found in ~/.claude/skills/"
-  echo "请先安装：npx skills add YiXinHui/langskill --all -y"
+  echo "请先安装：npx skills add YiXinHui/langskill --skill '*' --agent claude -y"
   exit 1
 fi
 ```

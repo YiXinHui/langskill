@@ -19,10 +19,10 @@ brew install node
 ## 安装
 
 ```bash
-npx skills add YiXinHui/langskill --all -y
+npx skills add YiXinHui/langskill --skill '*' --agent claude -y
 ```
 
-安装时会提示选择安装目录（全局 `~/.claude/` 或当前项目），按需选择即可。所有 skill 自动全部安装。
+只安装到 `.claude/skills/` 目录，不会生成其他 AI 编辑器的垃圾目录。安装时会提示选择安装目录（全局 `~/.claude/` 或当前项目），按需选择即可。
 
 ## 卸载
 
