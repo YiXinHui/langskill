@@ -8,3 +8,10 @@
 !.git/
 !.gitignore
 skills-lock.json
+
+# C 方案三层架构 — 私人配置不发布
+skills/*/references/personal-config.md
+
+# skill-builder evals 调试产物（可能含敏感对话）
+skills/*-workspace/
+skills/*/evals/
