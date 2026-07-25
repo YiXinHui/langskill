@@ -14,6 +14,7 @@ skills/*/references/personal-config.md
 
 # skill-builder evals 调试产物（可能含敏感对话）
 skills/*-workspace/
-skills/*/evals/
-!skills/lang-skill-feedback/evals/
-!skills/lang-skill-feedback/evals/evals.json
+skills/*/evals/*
+!skills/*/evals/evals.json
+!skills/*/evals/*_smoke-results.md
+!skills/lang-poster/evals/minimal-poster.html

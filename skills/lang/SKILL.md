@@ -48,6 +48,11 @@ description: |
 |---|---|
 | ❶ 或 ❷，或有个想法想验证、「我觉得XX是因为YY」「帮我想清楚」「这个观点对不对」 | `/lang-think` |
 | ❸，或想多角色讨论、东方哲学视角、「五台山论道」 | `/lang-wutai-dialogue` |
+| 检查论证、逐步推理、「这个逻辑通不通」「这里为什么能推出那里」 | `/lang-logic-tracing` |
+| 整理录音、筛选转写洞察、深挖某条录音候选 | `/lang-recording-insight` |
+| 搭第二大脑、知识库规划、文件体系复诊 | `/lang-knowledge-system` |
+| 咨询复盘、客户沟通复盘、准备下一场咨询 | `/lang-consulting-retro` |
+| 制作海报、课程封面、观点视觉卡片 | `/lang-poster` |
 | 「升级」「更新」 | `/lang-upgrade` |
 
 路由规则：

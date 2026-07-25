@@ -40,6 +40,11 @@ npx skills remove YiXinHui/langskill
 | `/lang-think` | 狼哥盘认知 | 推理（想法→底层→系统）和推倒（错误认知→翻转→真相） |
 | `/lang-upgrade` | 升级 | 升级 langskill 到最新版本 |
 | `/lang-skill-iteration` | Skill 反馈迭代 | 从用户真实修改中提取规律并准确迭代 Skill、配置和测试 |
+| `/lang-logic-tracing` | 逻辑卡点梳理 | 逐步审计论证，修补跳跃、隐含假设和结论过强 |
+| `/lang-recording-insight` | 录音洞察 | 从转写中筛选高价值候选，用户选择后再深挖 |
+| `/lang-knowledge-system` | 数字大脑 | 从业务地图、信息流和协作边界设计知识系统 |
+| `/lang-consulting-retro` | 咨询复盘 | 用证据还原咨询转折并沉淀可验证的经验 |
+| `/lang-poster` | 可编辑海报 | 生成 HTML 海报并导出、检查高清 JPG |
 | `/lang-wutai-dialogue` | 五台山论道 | 根据话题推荐跨时代、跨流派思想家，模拟多角色对话与交锋 |
 | `/lang-evolution-structure` | 演变—结构研究 | 从时间演变与当前结构两个维度系统研究对象 |
 | `/lang-wechat-pyq` | 狼格拉底朋友圈 | 规划每日朋友圈内容、文案与配图 |
