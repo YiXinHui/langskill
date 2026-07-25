@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "repository": "YiXinHui/langskill",
+  "visibility": "public",
+  "skills": [
+    {"id": "lang", "path": "skills/lang", "role": "public-product"},
+    {"id": "lang-think", "path": "skills/lang-think", "role": "public-product"},
+    {"id": "lang-upgrade", "path": "skills/lang-upgrade", "role": "distribution"},
+    {"id": "lang-skill-iteration", "path": "skills/lang-skill-iteration", "role": "public-core"},
+    {"id": "lang-wutai-dialogue", "path": "skills/lang-wutai-dialogue", "role": "public-product"},
+    {"id": "lang-evolution-structure", "path": "skills/lang-evolution-structure", "role": "public-product"},
+    {"id": "lang-wechat-pyq", "path": "skills/lang-wechat-pyq", "role": "public-product"}
+  ]
+}

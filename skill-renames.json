@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "renames": {
+    "lang-skill-feedback": "lang-skill-iteration",
+    "五台山论道": "lang-wutai-dialogue",
+    "演变-结构研究": "lang-evolution-structure",
+    "狼哥朋友圈": "lang-wechat-pyq",
+    "lang-wechat-moments": "lang-wechat-pyq"
+  }
+}
