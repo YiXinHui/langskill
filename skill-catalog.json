@@ -14,6 +14,7 @@
     {"id": "lang-poster", "path": "skills/lang-poster", "role": "public-core"},
     {"id": "lang-wutai-dialogue", "path": "skills/lang-wutai-dialogue", "role": "public-product"},
     {"id": "lang-evolution-structure", "path": "skills/lang-evolution-structure", "role": "public-product"},
-    {"id": "lang-wechat-pyq", "path": "skills/lang-wechat-pyq", "role": "public-product"}
+    {"id": "lang-wechat-pyq", "path": "skills/lang-wechat-pyq", "role": "public-product"},
+    {"id": "lang-wechat-writing", "path": "skills/lang-wechat-writing", "role": "public-core"}
   ]
 }
