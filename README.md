@@ -44,11 +44,18 @@ npx skills remove YiXinHui/langskill
 | `/lang-recording-insight` | 录音洞察 | 从转写中筛选高价值候选，用户选择后再深挖 |
 | `/lang-knowledge-system` | 数字大脑 | 从业务地图、信息流和协作边界设计知识系统 |
 | `/lang-consulting-retro` | 咨询复盘 | 用证据还原咨询转折并沉淀可验证的经验 |
+| `/lang-enterprise-ai-diagnosis` | **狼哥 AI 提效诊断分身** | 从真实业务事件生成企业 AI 提效初筛报告，并可衔接正式诊断 |
 | `/lang-poster` | 可编辑海报 | 生成 HTML 海报并导出、检查高清 JPG |
 | `/lang-wutai-dialogue` | 五台山论道 | 根据话题推荐跨时代、跨流派思想家，模拟多角色对话与交锋 |
 | `/lang-evolution-structure` | 演变—结构研究 | 从时间演变与当前结构两个维度系统研究对象 |
 | `/lang-wechat-pyq` | 狼格拉底朋友圈 | 规划每日朋友圈内容、文案与配图 |
 | `/lang-wechat-writing` | 通用朋友圈写作 | 基于 1—3 份真实来源生成一条可追溯草稿 |
+
+只安装“狼哥 AI 提效诊断分身”：
+
+```bash
+npx skills add YiXinHui/langskill --skill lang-enterprise-ai-diagnosis --agent claude -y
+```
 
 ## 核心理念
 

@@ -73,6 +73,24 @@ async function main() {
     if (!wutaiSkill.includes(stage)) fail(`wutai independent dialogue stage missing: ${stage}`);
   }
 
+  const enterpriseDiagnosisDir = path.join(root, "skills", "lang-enterprise-ai-diagnosis");
+  const enterpriseDiagnosis = await fs.readFile(path.join(enterpriseDiagnosisDir, "SKILL.md"), "utf8");
+  for (const reference of ["conversation-guide.md", "report-contract.md", "handoff-contract.md"]) {
+    try {
+      await fs.access(path.join(enterpriseDiagnosisDir, "references", reference));
+    } catch {
+      fail(`enterprise AI diagnosis reference missing: ${reference}`);
+    }
+    if (!enterpriseDiagnosis.includes(`references/${reference}`)) {
+      fail(`enterprise AI diagnosis does not route to reference: ${reference}`);
+    }
+  }
+  for (const boundary of ["自述初筛", "产品名只是候选", "没有用户明确同意", "不能假装已经提交"]) {
+    if (!enterpriseDiagnosis.includes(boundary)) {
+      fail(`enterprise AI diagnosis boundary missing: ${boundary}`);
+    }
+  }
+
   if (!process.exitCode) {
     console.log(`OK: ${actual.length} public skills are catalogued and structurally valid`);
   }
