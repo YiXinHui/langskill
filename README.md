@@ -44,7 +44,7 @@ npx skills remove YiXinHui/langskill
 | `/lang-recording-insight` | 录音洞察 | 从转写中筛选高价值候选，用户选择后再深挖 |
 | `/lang-knowledge-system` | 数字大脑 | 从业务地图、信息流和协作边界设计知识系统 |
 | `/lang-consulting-retro` | 咨询复盘 | 用证据还原咨询转折并沉淀可验证的经验 |
-| `/lang-enterprise-ai-diagnosis` | **狼哥 AI 提效诊断分身** | 从真实业务事件生成企业 AI 提效初筛报告，并可衔接正式诊断 |
+| `/lang-enterprise-ai-diagnosis` | **狼哥企业 AI 提效诊断** | 用假设驱动咨询与真实样本筛选企业 AI 起点，可接入私有判断库 |
 | `/lang-poster` | 可编辑海报 | 生成 HTML 海报并导出、检查高清 JPG |
 | `/lang-wutai-dialogue` | 五台山论道 | 根据话题推荐跨时代、跨流派思想家，模拟多角色对话与交锋 |
 | `/lang-evolution-structure` | 演变—结构研究 | 从时间演变与当前结构两个维度系统研究对象 |
