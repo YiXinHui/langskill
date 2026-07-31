@@ -85,7 +85,7 @@ async function main() {
       fail(`enterprise AI diagnosis does not route to reference: ${reference}`);
     }
   }
-  for (const boundary of ["自述初筛", "产品名只是候选", "没有用户明确同意", "不能假装已经提交"]) {
+  for (const boundary of ["L0 自述初诊", "最多 3 次用户回答", "工作画面", "没有明确草稿请求"]) {
     if (!enterpriseDiagnosis.includes(boundary)) {
       fail(`enterprise AI diagnosis boundary missing: ${boundary}`);
     }
