@@ -51,6 +51,8 @@ for phrase in [
     "公开结果没有暴露 L0／L1",
     "除第一轮和终局交付外",
     "公司主要靠什么产品或服务赚钱",
+    "终局事实闸门",
+    "不得发明“超过六成”之类门槛",
 ]:
     require(phrase in SKILL, f"runtime contract missing: {phrase}")
 require(
@@ -77,6 +79,8 @@ for phrase in [
     "本轮未创建或转交任何材料",
     "下一问、要不要继续看 AI",
     "2—3 条同类已完结工单",
+    "五项来源核对",
+    "每个数字都要能逐字落回用户原话",
 ]:
     require(phrase in report, f"result contract missing: {phrase}")
 require("由 AI 先" not in report, "AI work-scene template must not imply an execution chain")
@@ -90,8 +94,8 @@ require("明确要求“生成正式诊断交接草稿”" in handoff, "handoff 
 
 evals = json.loads((SKILL_DIR / "evals" / "evals.json").read_text(encoding="utf-8"))
 items = evals.get("evals", [])
-require(len(items) == 32, f"expected 32 evals, got {len(items)}")
-require([item["id"] for item in items] == list(range(1, 33)), "eval ids must be contiguous 1..32")
+require(len(items) == 35, f"expected 35 evals, got {len(items)}")
+require([item["id"] for item in items] == list(range(1, 36)), "eval ids must be contiguous 1..35")
 for item in items[15:]:
     require(len(item.get("expectations", [])) >= 4, f"eval {item['id']} needs at least four expectations")
 
@@ -115,8 +119,11 @@ require("内部术语" in "\n".join(by_id[29]["expectations"]), "eval 29 must en
 require("具体角色" in "\n".join(by_id[30]["expectations"]), "eval 30 must test the AI work scene")
 require("用户取证动作数量为零" in "\n".join(by_id[31]["expectations"]), "eval 31 must allow zero evidence actions")
 require("没有生成交接草稿" in "\n".join(by_id[32]["expectations"]), "eval 32 must prevent automatic handoff")
+require("已有诊疗记录和医嘱" in "\n".join(by_id[33]["expectations"]), "eval 33 must preserve the production fact-boundary regression")
+require("没有编造任何数字阈值" in "\n".join(by_id[34]["expectations"]), "eval 34 must generalize the numeric fact gate")
+require("允许输出一个 AI 工作画面" in "\n".join(by_id[35]["expectations"]), "eval 35 must preserve evidence-supported AI scenes")
 
 print(
-    "OK: 3 staged references, 32 evals, L0/L1/L2 runtime, absolute turn stop, "
-    "boss-facing output, optional evidence action, one-shot L1 and review-only handoff are present"
+    "OK: 3 staged references, 35 evals, L0/L1/L2 runtime, absolute turn stop, "
+    "boss-facing output, fact gate, optional evidence action, one-shot L1 and review-only handoff are present"
 )
