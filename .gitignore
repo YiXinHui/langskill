@@ -16,5 +16,6 @@ skills/*/references/personal-config.md
 skills/*-workspace/
 skills/*/evals/*
 !skills/*/evals/evals.json
+!skills/*/evals/run_static_checks.py
 !skills/*/evals/*_smoke-results.md
 !skills/lang-poster/evals/minimal-poster.html
