@@ -51,6 +51,8 @@ for phrase in [
     "公开结果没有暴露 L0／L1",
     "除第一轮和终局交付外",
     "公司主要靠什么产品或服务赚钱",
+    "老板／整体经营",
+    "选择和自由回答必须同时存在",
     "终局事实闸门",
     "不得发明“超过六成”之类门槛",
 ]:
@@ -61,7 +63,14 @@ require(
 )
 
 conversation = (REFERENCES / "conversation-guide.md").read_text(encoding="utf-8")
-require("目标留到下一轮" in conversation, "cold-start goal must be deferred")
+for phrase in [
+    "冷启动第 0 轮：先定工作视角",
+    "老板／整体经营",
+    "销售／客户对接",
+    "界面支持按钮时，按钮只把选项带入输入框",
+    "用户一开始就说出明确目标、痛点或近期事件时，跳过角色菜单",
+]:
+    require(phrase in conversation, f"role intake contract missing: {phrase}")
 
 report = (REFERENCES / "report-contract.md").read_text(encoding="utf-8")
 for phrase in [
@@ -94,15 +103,15 @@ require("明确要求“生成正式诊断交接草稿”" in handoff, "handoff 
 
 evals = json.loads((SKILL_DIR / "evals" / "evals.json").read_text(encoding="utf-8"))
 items = evals.get("evals", [])
-require(len(items) == 35, f"expected 35 evals, got {len(items)}")
-require([item["id"] for item in items] == list(range(1, 36)), "eval ids must be contiguous 1..35")
+require(len(items) == 36, f"expected 36 evals, got {len(items)}")
+require([item["id"] for item in items] == list(range(1, 37)), "eval ids must be contiguous 1..36")
 for item in items[15:]:
     require(len(item.get("expectations", [])) >= 4, f"eval {item['id']} needs at least four expectations")
 
 by_id = {item["id"]: item for item in items}
 require(
-    "没有在同一轮继续要求客户类型、目标、流程或样本" in by_id[1]["expectations"],
-    "eval 1 must keep the cold-start question to one business anchor",
+    "选择与自由回答同时存在，用户不需要只能回复编号" in by_id[1]["expectations"],
+    "eval 1 must combine role choices with free response",
 )
 for eval_id, ceiling in [(3, 500), (14, 500), (17, 900), (18, 500), (22, 900), (23, 900), (27, 500)]:
     expectations = "\n".join(by_id[eval_id]["expectations"]).replace(" ", "")
@@ -122,8 +131,10 @@ require("没有生成交接草稿" in "\n".join(by_id[32]["expectations"]), "eva
 require("已有诊疗记录和医嘱" in "\n".join(by_id[33]["expectations"]), "eval 33 must preserve the production fact-boundary regression")
 require("没有编造任何数字阈值" in "\n".join(by_id[34]["expectations"]), "eval 34 must generalize the numeric fact gate")
 require("允许输出一个 AI 工作画面" in "\n".join(by_id[35]["expectations"]), "eval 35 must preserve evidence-supported AI scenes")
+require("没有展示老板、销售、交付、职能、技术等通用角色菜单" in "\n".join(by_id[36]["expectations"]), "eval 36 must skip role intake for an explicit event")
 
 print(
-    "OK: 3 staged references, 35 evals, L0/L1/L2 runtime, absolute turn stop, "
-    "boss-facing output, fact gate, optional evidence action, one-shot L1 and review-only handoff are present"
+    "OK: 3 staged references, 36 evals, role-plus-free intake, L0/L1/L2 runtime, "
+    "absolute turn stop, boss-facing output, fact gate, optional evidence action, "
+    "one-shot L1 and review-only handoff are present"
 )
