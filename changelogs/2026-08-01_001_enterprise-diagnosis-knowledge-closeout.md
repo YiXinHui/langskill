@@ -37,6 +37,13 @@ node scripts/validate-sharing-system.mjs
 
 结果：14 个公开 Skill 结构校验通过，敏感词预扫描无残留，文档差异无空白错误。`git cherry -v origin/main codex/enterprise-diagnosis-v0101` 将旧提交标为 `-`，且旧分支树与 v0.10.1 合并结果无内容差异。
 
+## 清场结果
+
+- 用户在完整清场报告后明确确认删除旧 Worktree 和过程评测目录。
+- 已删除 `langgeladi-enterprise-diagnosis-v2`；其中 620 个被 Git 忽略的历史评测文件随 Worktree 删除，已提交、已合并的方法历史继续保留在 `main` 和 GitHub PR 中。
+- 正式 Skill 仓只保留 `langgeladi/main`；本地和远端过程分支均已删除。
+- `lang-wechat-writing-workspace/`、`lang-wutai-dialogue-workspace/`、`.DS_Store` 和未被 Git 使用的 `.git/index 2` 已移入系统废纸篓，可在清空废纸篓前恢复。
+
 ## 还没解决什么
 
-- `langgeladi-enterprise-diagnosis-v2` 仍保留待用户确认清场；其中有 620 个被 Git 忽略的评测过程文件，约 5.2MB，删除 Worktree 时会一并删除。
+- 无。
