@@ -1,152 +1,456 @@
-# 企业 AI 初诊结果契约
+# DiagnosisResultV3｜企业 AI 初诊结果契约
 
-## 硬预算与计数口径
+## 定位
 
-默认产物是一屏《企业 AI 初诊卡》，不是缩小版咨询报告。
+`DiagnosisResultV3` 是当前证据边界内形成的可审查初诊结果。它保存生意理解、议题组合、候选工作系统、优先焦点、AI 适配判断和最小验证。它不等同于咨询报告、实施方案、ROI 或销售线索。
 
-- 普通 L0／L1 卡去除全部 Unicode 空白后不超过 **900 个字符**，最多 **4 个语义区块**；
-- 累计两次低信息回答或用户要求“先给点东西看／先给结论”时，不超过 **500 个字符**，最多 **3 个语义区块**；
-- 字数包含标题、元信息和结尾；一个独立目的就是一个区块，即使没有 `##` 标题也照计；
-- 表格、引用、附录、折叠和“一个闭环”等包装不豁免。超限时先删背景复述、解释性铺垫和扩展方案。
+结果由案例成熟度和用户当前决定触发，不使用固定轮数、固定时长、固定字数或固定材料次数。用户要求先看结论、继续提问已无增量、出现疲劳，或下一步需要正式项目权限时，可以输出 partial、final 或 paused 结果。
 
-整条回复中，面向用户或企业的证据动作最多一个，也可以为零。只有一份现成材料或一次自然事件会真实改变“下一问、要不要继续看 AI／先看哪个工作画面”时，才给这个动作。动作按实际语义和动作性谓词计数，不按标题、句子或项目符号计数；结论区出现“补、改、建、记录、部署”等实施指令也算动作，不能靠换位置逃避。
+## Canonical schema
 
-## 诊断阶段与证据来源
+```yaml
+schema: enterprise_ai_diagnosis_result_v3
+result_id: stable-result-id
+case_id: opaque-case-id
+created_at: 2026-08-02T10:00:00+08:00
+status: partial
+audiences: [owner_visible]
 
-- **L0 自述初诊**：当前只有业务描述、目标、现象或普通经验陈述；
-- **L1 样本增强初诊**：出现与当前假设有关的 `sample_reported` 或 `sample_observed`；
-- `sample_reported`：用户给出有数量、范围和结果的样本汇总，但 AI 没有看过原始材料；
-- `sample_observed`：AI 直接读取了脱敏原始记录、附件或操作演示；对外应明确写“我刚查看的脱敏原始记录／原件”。
+business_snapshot:
+  summary: 对公司如何服务客户和形成价值的有来源摘要
+  supporting_claim_ids: []
+  object_refs: [business_map]
+  audiences: [owner_visible]
 
-两种样本来源不是简单的强弱排序。一条已查看材料未必比一批有界汇总更有代表性。卡片必须写清来源；`sample_reported` 不得写成“我已查看／数据已证实”，`sample_observed` 也不表示材料已独立验真、具有代表性或识别了因果。L2 不能靠增加样本自动获得，只能进入另行授权的正式诊断。
+respondent_scope:
+  role_label:
+    text: unknown
+    supporting_claim_ids: []
+    object_refs: [respondent.role_label]
+    audiences: [owner_visible]
+  actual_responsibilities:
+    - item_id: RS-001
+      text: null
+      supporting_claim_ids: []
+      object_refs: [respondent.actual_responsibilities]
+      audiences: [owner_visible]
+  can_speak_for: []       # 每项使用 EvidenceBoundItem
+  cannot_confirm: []      # 每项使用 EvidenceBoundItem
+  supporting_claim_ids: []
+  object_refs: [respondent]
+  audiences: [owner_visible]
 
-事件是否具体不决定层级。用户口述一个真实事件、说“我有截图”或声称自己看过材料仍是 L0；只有 AI 实际读取脱敏原始材料，或用户给出数量、时间或业务范围与结果完整的汇总，才是 L1。L1 结果无论来自直接入口还是 L0 后更新，都消耗唯一一次 `l1_update_used`；输出后不得再邀请第二轮样本核验。
+agenda:
+  user_wording: []        # 每项使用 EvidenceBoundItem
+  desired_outcomes:
+    - outcome_id: G-001
+      statement: null
+      observable_change: null
+      priority: unresolved
+      scope_ref: null
+      supporting_claim_ids: []
+      object_refs: [agenda.desired_outcomes.G-001]
+      audiences: [owner_visible]
+  unresolved_priorities:
+    - item_id: UP-001
+      statement: null
+      related_outcome_refs: []
+      affects_focus: true
+      supporting_claim_ids: []
+      object_refs: [agenda]
+      audiences: [owner_visible]
+  supporting_claim_ids: []
+  object_refs: [agenda]
+  audiences: [owner_visible]
 
-## 标准初诊卡：最多四块
+opportunity_map:
+  - opportunity_id: O-001
+    label: null
+    business_contribution: null
+    outcome_refs: []
+    known_signals: []     # 每项使用 EvidenceBoundItem
+    current_status: candidate
+    supporting_claim_ids: []
+    object_refs: [opportunity_portfolio.O-001]
+    audiences: [owner_visible]
 
-```markdown
-# {公司代号}企业 AI 初诊卡
-> 依据：{你目前的描述／你提供的 N 条、某范围汇总，我没有查看原件／我刚查看的 N 条、某范围脱敏材料}｜用途：先决定要不要继续看，不是正式实施方案
+priority_focus:
+  opportunity_id: null
+  statement: null
+  selection_status: unselected
+  considered_opportunity_refs: []
+  relevant_outcome_refs: []
+  selection_basis:
+    - basis_id: PB-001
+      dimension: business_impact
+      statement: null
+      supporting_claim_ids: []
+      object_refs: [selected_focus]
+      audiences: [owner_visible]
+  unresolved_comparison:
+    affects_focus: true
+    dimensions: [business_impact, urgency]
+    related_opportunity_refs: []
+    related_outcome_refs: []
+    statement: null
+    supporting_claim_ids: []
+    object_refs: [selected_focus]
+    audiences: [owner_visible]
+  supporting_claim_ids: []
+  object_refs: [selected_focus]
+  audiences: [owner_visible]
 
-## 1. 现在怎么看
-{直接说最值得关注的是“X 是否参与了 Y”，或用户所述的等待／错误目前出现在哪里；没有因果证据时，不写 X 卡住、制约或影响了 Y。}
-{三选一：值得找一个小切口看 AI／先别上 AI，还要分清基础问题／现在不建议做 AI。}
-{只用一句话交代当前还不能确定什么。}
+current_work_system:
+  summary: null
+  confirmed_elements:
+    - element_id: WS-001
+      element_type: action
+      statement: null
+      supporting_claim_ids: []
+      object_refs: [current_work_system.work_nodes]
+      audiences: [owner_visible]
+  open_elements: []       # 每项沿用 confirmed_elements 的证据与受众结构
+  supporting_claim_ids: []
+  object_refs: [current_work_system]
+  audiences: [owner_visible]
 
-## 2. 如果要看 AI，先看这个工作画面
-{仅当判断值得继续看 AI 时出现。}
-{角色}在{具体触发时刻}面对{现成输入或任务}时，AI 提供{一个明确判断或产物}，使人的动作从{原来的动作}变成{一个被改变的动作}；现有的{一次任务内或短周期自然反馈}直接显示这次建议是否有用。
+ai_assessment:
+  ai_status: insufficient_evidence
+  mechanism: unknown
+  candidate_change:
+    change_id: AC-001
+    actor:
+      text: null
+      supporting_claim_ids: []
+      object_refs: [current_work_system.roles_and_handoffs]
+      audiences: [owner_visible]
+    trigger:
+      text: null
+      supporting_claim_ids: []
+      object_refs: [current_work_system.trigger]
+      audiences: [owner_visible]
+    available_inputs: []              # 每项使用 EvidenceBoundItem
+    current_action_or_judgment:
+      text: null
+      supporting_claim_ids: []
+      object_refs: [current_work_system.work_nodes]
+      audiences: [owner_visible]
+    ai_change:
+      text: null
+      supporting_claim_ids: []
+      object_refs: [intervention_assessment.candidate_intervention]
+      audiences: [owner_visible]
+    natural_feedback:
+      text: null
+      supporting_claim_ids: []
+      object_refs: [current_work_system.feedback]
+      audiences: [owner_visible]
+    human_responsibility: []          # 每项使用 EvidenceBoundItem
+    stop_conditions: []               # 每项使用 EvidenceBoundItem
+    supporting_claim_ids: []
+    object_refs: [intervention_assessment.candidate_intervention]
+    audiences: [owner_visible]
+  conditions: []                      # 每项使用 EvidenceBoundItem
+  supporting_claim_ids: []
+  object_refs: [intervention_assessment]
+  audiences: [owner_visible]
 
-## 3. 为什么这样判断
-你提到／材料中看到：{最多两项具体事实，保留来源与范围}。
-另一种可能是：{一个会导向不同方向的解释}。
-如果出现{一个清楚信号}，我会把判断改为{老板能听懂的新方向}。
+change_signals:
+  - signal_id: CS-001
+    observable_condition: null
+    judgment_update: null
+    affected_object_refs: []
+    supporting_claim_ids: []
+    object_refs: [selected_focus]
+    audiences: [owner_visible]
 
-## 4. 接下来（可选）
-{只有补一次现成证据会改变决策时才保留本块。}
-若你愿意，只需{原样讲一次自然事件／一次性发来一条完整案例或 2—3 条现成可比记录，无需整理}。我只看{一个判断问题}；若是自然事件，只决定下一问；若是一条完整案例，只说明该案例是否符合当前判断；若是 2—3 条现成可比记录，才初步判断这个工作画面是否还值得先看。
+limitations:
+  - limitation_id: LM-001
+    kind: evidence
+    statement: null
+    affected_object_refs: []
+    supporting_claim_ids: []
+    object_refs: [diagnostic_boundary]
+    audiences: [owner_visible]
+
+minimum_validation:
+  validation_id: MV-001
+  decision_question:
+    text: null
+    supporting_claim_ids: []
+    object_refs: [intervention_assessment]
+    audiences: [owner_visible]
+  evidence_unit:
+    kind: natural_event
+    description:
+      text: null
+      supporting_claim_ids: []
+      object_refs: [current_work_system]
+      audiences: [owner_visible]
+  user_action:
+    text: null                         # 只能有一个动作
+    supporting_claim_ids: []
+    object_refs: [current_work_system]
+    audiences: [owner_visible]
+  evaluation_rule:
+    text: null
+    supporting_claim_ids: []
+    object_refs: [intervention_assessment]
+    audiences: [owner_visible]
+  update_scope:
+    text: null
+    supporting_claim_ids: []
+    object_refs: []
+    audiences: [owner_visible]
+  stop_conditions: []                 # 每项使用 EvidenceBoundItem
+  supporting_claim_ids: []
+  object_refs: [intervention_assessment]
+  audiences: [owner_visible]
 ```
 
-判断值得继续看 AI 时，第 2 块必有，且必须同时出现角色、触发、可用输入、AI 改变的动作和当前已经存在、能判断结果好坏的自然反馈；这些要素必须来自用户陈述或已查看材料，并且现有案例内能看见动作如何连接到反馈。任一项需要脑补时就选择“先别上 AI”，删除第 2 块。“以后统计主管改了多少／上线后看准确率”属于新测量方案，不算现成反馈；不同人输出不一致但还不知道谁对谁错，或汇总只显示输入缺失与返工伴随出现，都不足以进入 AI 候选。工作画面描述候选，不是要求客户立即建设、部署或改流程。判断暂不进入或不建议做 AI 时不提供安慰性的 AI 点子。L1 结果、用户要求停止或当前不建议做 AI 时删除第 4 块；其他场景没有必要追加证据时也删除，整张卡可以只有 2—3 块。
+## 可呈现单元的共同结构
 
-生成第 2 块前必须在后台完成五项来源核对：角色、触发、现成输入、被改变的现行动作、自然反馈。任何一项只能靠行业经验推测时，第 2 块不得出现。不能把“检查后不知道下一步”自行补成企业已有结构化诊疗记录、医嘱、前台随访职责或人工只会随口交代；示例用于解释证据边界，不是行业题库。
+任何可能单独进入正文的结果块、摘要、列表项、判断、限制、改判信号和验证动作，都是一个 evidence-bound unit。它不能只依赖父级或 Result 顶层的来源与权限。
 
-工作画面的最小结构是：`谁 × 在什么时刻 × AI 改变什么动作 × 怎样看到反馈`。缺少任一项，就仍是产品名或口号，不是可判断的 AI 起点。
+短文本值使用：
 
-对外不使用“主假设、替代假设、改判信号、优先级升降、更新范围、L0、L1、样本增强、增强更新、证据动作”等词，分别改写为“现在更像、另一种可能、什么情况会让我换判断、已经用上一批材料改过一次、看完只回答什么”。不默认追加新问题、机会清单或三选一菜单；卡后最多写一句“这版初诊到这里即可，不需要继续回答”。L1 只更新以上区块，不追加第五块，也不再邀请第二包材料。
-
-L1 结果仍处于“值得继续看 AI”或“先别上 AI、基础待核验”时，必须在第 1 或第 3 块内写；已经足以明确“不建议做当前 AI”时可以省略，不机械引流：
-
-> 若后续要确认 `{只有正式诊断才能回答的一个问题}`，可另行进入正式诊断；本轮未创建或转交任何材料。
-
-这句话只声明阶段边界，不算用户证据动作。不得把它写成问句、同意菜单、资料清单或“已经安排”。
-
-## 低信息部分卡：最多三块
-
-```markdown
-# 企业 AI 初诊卡
-
-## 1. 现在能确定的
-你公司主要做{已知业务}。目前还不能判断最该 AI 化哪里，也不建议先选工具或智能体。
-
-## 2. 真正要分清的
-下一次需要你亲自介入时，关键不是它发生在哪个部门，而是你当时在做什么：如果是在做专业判断，下一步看判断依据；如果是在等人、催人或传话，下一步看交接。
-
-## 3. 接下来（可选）
-若愿意，下次自然发生时只用一句话告诉我“发生了什么、为什么必须你来”。我只据此决定下一问，不据此判断公司该上什么 AI。
+```yaml
+text: null
+supporting_claim_ids: []
+object_refs: []
+audiences: [internal_only]
 ```
 
-若这次自然事件也不会改善下一问，删除第 3 块，直接结束。不得因为模板有栏目就给用户布置观察、记录或整理任务。不得把“不知道／不想找资料”解释成公司数据差、员工抗拒、管理粗放、无人负责或任何其他业务事实，也不要输出“最大的风险是……”等无证据判断。
+列表项在此基础上增加稳定 ID 和自身语义字段：
 
-## 单一证据动作判定
+```yaml
+item_id: ITEM-001
+text: null
+supporting_claim_ids: []
+object_refs: []
+audiences: [internal_only]
+```
 
-合格动作满足：
+共同约束：
+
+- `supporting_claim_ids[]` 指向仍有效的 claims；用户可见事实、推断、范围判断或“当前未知”都必须有相应声明，空引用的单元只能按 `[internal_only]` 处理；
+- `object_refs[]` 指向该单元正在描述、限制、比较或准备更新的 CaseV2 对象；只有 claim 没有对象关系时不能进入结果；
+- `audiences[]` 是该单元请求的可见范围，不是独立授权；实际权限还要与所有 supporting claims 的允许范围求交集；
+- 父块的 `supporting_claim_ids[]` 与 `object_refs[]` 至少覆盖本次渲染所包含子项的并集，父块权限不得用一条宽权限声明替受限子项“洗白”；
+- 子项即使允许更宽受众，也不能突破父块和 Result 顶层的权限上限；父块可过滤不适合当前受众的子项，并按剩余内容重新计算摘要与权限，不能保留由被过滤项推导出的句子。
+
+`EvidenceBoundValue` 表示上面的短文本结构；`EvidenceBoundItem` 表示上面的列表项结构。Canonical schema 中标注这两个类型的字段必须保存完整结构，不能在实际结果中写成裸字符串。
+
+## 必填字段
+
+- `schema`
+- `result_id`
+- `case_id`
+- `created_at`
+- `status`
+- `business_snapshot`
+- `respondent_scope`
+- `agenda`
+- `opportunity_map[]`
+- `priority_focus`
+- `current_work_system`
+- `ai_assessment`
+- `change_signals[]`
+- `limitations[]`
+- `audiences[]`
+
+`minimum_validation` 可以为 null。
+
+每个顶层结果块必须包含 `supporting_claim_ids[]`、`object_refs[]` 和 `audiences[]`；块内每个可单独呈现的列表项也必须包含这三项。`candidate_change` 不成立时可以为 null；一旦存在，内部每个角色、触发、输入、当前动作、AI 改变、反馈、责任和停止条件都必须是独立的 EvidenceBoundValue／Item。
+
+`status`：
 
 ```text
-1 次用户提交 × 1 个现成证据包或 1 次自然事件 × 1 次 AI 分析 × 1 个判断问题 × 1 个有界更新
+partial | final | paused
 ```
 
-“现成证据包”只能是：
+- `partial`：已经形成可带走的阶段理解，仍有一个会改变焦点或 AI 判断的缺口；
+- `final`：本次公开授权范围内已经足以支持当前决定；
+- `paused`：用户暂停或能量不足，保存可恢复结果。
 
-- 一条已经完整存在、含输入／处理／结果的案例；或
-- 一次性提交的 2—3 条已存在、天然可比的记录，用于初步核验一致性。
+## 结果各部分的门槛
 
-需要核验跨记录一致性时，必须明确写 **2—3 条**，不能只写“最多 3 条”而允许一条记录承担群体判断。
+### `business_snapshot`
 
-“同一报警代码／客户类型／产品名”只表示共享一个字段，不自动构成可比输入。其他可能相关输入未核对前，对外写“稳定性仍不清楚”，不能断言“判断不一致／方法未统一”。
+只总结已经有来源的产品／服务、客户结果、价值或收入方式和本轮范围。行业名称、渠道、价格和单个商品不能自动生成公司定位。信息不足时缩小摘要，并把未知内容写入 limitations。
 
-用户不负责重新整理、标注、汇总或设计实验。动作还必须满足：
+### `respondent_scope`
 
-- 用户只投入一次，通常可在约 15 分钟内完成；
-- 不新建系统、规则、表格或自动化，不改变正式流程；
-- 不跨多人收集、分头执行或再组织复核；
-- 不要求连续多天、周期性记录或等待新样本积累；
-- 不包含采集、分类、汇总、复核、决策、实施、追踪中的两个及以上用户步骤。
+实际职责与可代表范围必须分开。宽泛岗位只进入 `role_label`；没有具体职责时 `actual_responsibilities[]` 保持空，不用岗位常识补齐。
 
-“并、再、然后、同时、分别、连续、每周”等串联执行词通常意味着多项任务。除“接下来（可选）”外，其他区块只能陈述判断、证据、边界和项目状态；出现第二个执行指令即不合格。更复杂的取证进入 L2，不在卡片中包装成“一项验证”。
+### `agenda`
 
-## 证据规模与更新范围
+保留用户原话和多个 desired outcomes。总括目标没有被具体化时，可以留在 `user_wording[]` 并写入 `unresolved_priorities[]`，不能自动选降本、增收或效率方向。
 
-- 一次自然事件：只用于选择下一问；
-- 一条完整案例：只用于判断该案例是否与假设一致；
-- 2—3 条现成可比记录：只用于初步增减一致性／可复制性假设的优先级；
-- 代表性、因果、ROI 和正式立项：必须进入 L2 或取得更强证据。
+只要一项目标仍可能影响候选价值、焦点选择或验证方向，就必须保留为独立 outcome；不能在摘要里只留下更容易描述的一项，也不能把“提高收入”和“减少等待”等并列目标合并成“因为等待所以收入低”的无证据因果链。每个 outcome 自带 claims、object refs 与 audiences。
 
-证据动作若不足以支持承诺的分支，缩小“更新范围”，不能把用户任务扩成小项目，也不能用一个单例直接转向库存、调度、数据治理等企业级方向。
+### `opportunity_map`
 
-合格示例：
+候选必须来自案例中的 `opportunity_portfolio[]` 和有效 claims。公司级扫描或职责较宽时，呈现当前有证据、对取舍有帮助的候选；用户明确只判断一个局部工作时允许只有一个候选。
 
-> 一次性发来 2—3 条同类已完结工单的现成脱敏截图，无需整理；我只比较可见输入相近时备件清单是否仍不一致，看完只回答这个方向是否还值得先查。
+每个候选用 `outcome_refs[]` 回链它承接的全部相关目标。多个候选分别对应不同目标时，两条目标线都留在结果中；候选自己的 `known_signals[]` 不能替换或吞掉目标。没有证据时不得声称一个候选会推动另一候选的结果。
 
-不合格示例：
+不得为凑数量补写行业常见流程、部门和问题。`current_status` 使用：
 
-> 改造入口，连续记录 20 条，再由主管复核并统计返工率。
+```text
+candidate | shortlisted | selected | deferred | ruled_out
+```
 
-## 证据与因果措辞
+用户可见结果默认不呈现 ruled out 项的内部淘汰理由；用户询问取舍时，只说明有来源、允许公开的依据。
 
-证据项依次写：来源与范围 → 被看到或被报告的现象 → 它如何支持或削弱假设 → 不能外推什么 → 改判信号。不要用含混的“已知”替代来源标签。
+### `priority_focus`
 
-样本只显示 A 与 B 同时出现时，写“在这 N 条样本中 A 与 B 伴随出现，因此先核验 A 是否参与了 B”。没有干预、有效对照或其他足够证据时，避免“导致、造成、证明、卡住、制约、决定了、根因是、多数问题来自”。用户说等待发生在 A，只能写“等待出现在 A”，不能自动升级为“A 卡住了经营目标”。在句首加 `[当前假设]` 也不能给后面的因果连接词免责。
+`selection_status` 使用：
 
-结果中的每个数字都要能逐字落回用户原话或实际查看材料，包括比例、阈值、耗时、频率、数量和金额。用户没有给数字时，改判信号使用不带数字的可观察条件；不得为了显得可衡量而发明“超过六成”“一周三次”或自定达标线。
+```text
+unselected | provisional | confirmed
+```
 
-## 项目状态
+只有候选之间已有比较依据或用户明确限定局部问题时，才写 statement。provisional 必须说明改选信号；unselected 时清楚写出目前还缺哪项比较信息，不能假装已经找到“最值得做”的场景。
 
-后台仍记录三类状态；对外统一使用老板语言：
+`considered_opportunity_refs[]` 覆盖本次比较过的候选，`relevant_outcome_refs[]` 覆盖所有仍会影响焦点的目标。`selection_basis[].dimension` 只能使用当前有证据的可比维度：
 
-1. `值得继续核验 AI 候选` → **值得找一个小切口看 AI**，并给出具体工作画面；
-2. `AI 暂不进入，基础条件待核验` → **先别上 AI，还要先分清 X**，不强行给 AI 方案；
-3. `当前不建议立项` → **现在不建议做 AI**，只说明什么新情况出现时值得重看。
+```text
+business_impact | urgency | frequency | unacceptable_loss |
+evidence_availability | result_verifiability | authority | risk | other
+```
 
-不得把“先别上 AI”写成一长串整改任务。
+若现有信息不足以排序、而排序会改变下一步，保留 `unresolved_comparison`，其首选比较维度是业务影响或紧迫度。用户个人偏好可以成为已明确授权的局部边界，但“更想聊哪个／更喜欢哪个”本身不能替代业务优先级证据。
 
-## 写作门槛
+### `current_work_system`
 
-- 当前判断、另一种可能、换判断的信号各只有一个；证据动作最多一个，也可以没有；
-- 值得继续看 AI 时，必须出现一个完整工作画面；不值得时不得强行生成 AI 候选；
-- 对外结果不出现后台诊断术语；
-- 数字只来自用户或已查看材料，并标明来源；未知就写未知；
-- 角色、触发、输入、现行动作和反馈逐项有来源；缺一项就不输出 AI 工作画面；
-- 结论区没有实施路线，单例没有企业级改判权；
-- 不输出报价、固定周期、提效比例或经营结果保证；
-- 先给价值判断，再给一句必要边界，不能让免责声明压过结果。
+只总结已经确认的目的、输入、动作／判断、输出、反馈、交接和责任。模式与事件分开；一件事件只覆盖事件范围。`open_elements[]` 保存会改变当前判断的缺口，不列完整字段清单。
+
+### `ai_assessment`
+
+`ai_status`：
+
+```text
+validation_candidate | foundation_first | non_ai_priority | insufficient_evidence
+```
+
+`mechanism`：
+
+```text
+automation | augmentation | hybrid | none | unknown
+```
+
+只有焦点和工作系统已有足够证据时才写 candidate change。它至少需要：
+
+```text
+明确角色
+× 真实触发
+× 当前可用输入
+× 当前动作或判断
+× AI 可能改变的具体关系
+× 现有反馈
+× 人的责任与停止条件
+```
+
+上述每个元素分别保存 supporting claims、object refs 和 audiences；candidate wrapper 保存本次呈现所用子项的并集。不能用 candidate wrapper 的一组宽泛 claim 代替元素级来源核对。任何一项只能靠行业常识补齐、缺少当前可用输入或没有自然反馈时，`candidate_change` 置为 null，并缩小判断或使用 foundation_first／insufficient_evidence。
+
+### `change_signals`
+
+每项改判信号必须拆成“可观察条件”和“它会怎样改变当前焦点或 AI 判断”，并在 `affected_object_refs[]` 指明受影响对象。不能只写抽象的“数据更充分时再判断”，也不能发明阈值。两部分共同使用该项自己的 supporting claims、object refs 与 audiences。
+
+### `limitations`
+
+每项限制是一个可审查对象，`kind` 使用：
+
+```text
+evidence | scope | representativeness | authority | permission | formal_project_boundary
+```
+
+限制要说明当前结论不能覆盖什么，并用 `affected_object_refs[]` 指向被限制的结果对象。限制不是通用免责声明；没有来源或对象关系的固定话术不进入 Result。涉及私密或正式项目边界的限制也必须经过受众交集检查。
+
+### `minimum_validation`
+
+只有同时满足以下条件才保留：
+
+1. 它只验证一个会改变当前决定的问题；
+2. 使用一次自然发生的工作或一个现成、脱敏、有界的证据包；
+3. 不要求新建系统、连续采样、组织多人实验或整理完整数据；
+4. 结果只更新当前声明范围；
+5. 它不承担延长对话和服务转化功能。
+
+非 null 的 minimum validation 必须明确保存：一个 `decision_question`、一种 `evidence_unit.kind`（`natural_event | existing_bounded_package`）、一个 `user_action`、一条 `evaluation_rule`、一个有界 `update_scope` 以及必要的 `stop_conditions[]`。这些可呈现单元分别带 supporting claims、object refs 与 audiences；顶层 metadata 覆盖本次呈现子项的并集。任一子项没有来源或会要求第二个用户动作时，将 `minimum_validation` 置为 null。
+
+需要跨角色、代表性样本、生产权限、ROI、架构或实施承诺时，写入 limitations，并停止扩张公开初诊。
+
+## 证据门槛
+
+所有 `supporting_claim_ids[]` 必须引用 `DiagnosisStateV2.claims[]` 中仍有效的声明。每个数字、时间、金额、频率、专名和因果连接都必须回到相应 claim；每个引用对象必须存在于本次 CaseV2，且没有被纠正、排除或移出边界。
+
+声明类型保持：
+
+```text
+reported_fact | observed_fact | experience_judgment | inference | hypothesis
+```
+
+被 corrected、invalidated 或 ruled out 的声明不能支撑结果。只有未核验假设时，缩小措辞并使用 `insufficient_evidence`；不能用经验判断代替客户事实。
+
+## 用户需要带走什么
+
+公共结果帮助用户抓住：
+
+1. 系统怎样理解他的生意和职责；
+2. 这次同时想改善什么；
+3. 当前有哪些值得分开看的工作系统；
+4. 现在为什么先看某一项；
+5. 该工作目前卡在哪里；
+6. AI 当前是否值得进入、可能改变什么；
+7. 下一项最小验证和改判信号。
+
+Presenter 根据内容成熟度选择必要部分，不机械凑齐七段，也不使用固定字符预算。
+
+## 受众与权限
+
+`audiences[]` 只能使用：
+
+```text
+internal_only | consultant_only | owner_visible | client_visible | exportable
+```
+
+字段缺少 audiences 时按 `[internal_only]`；`internal_only` 不得与其他值共存。Result 具备 `exportable` 资格也不表示用户已经授权导出或外发。
+
+计算权限时先把标签展开为可达受众：
+
+```text
+internal_only   → internal
+consultant_only → consultant
+owner_visible   → owner
+client_visible  → owner + client
+exportable      → owner + client + neutral_export
+```
+
+一个结果单元的有效受众是以下集合的交集：
+
+```text
+Result 顶层允许受众
+∩ 所有父块允许受众
+∩ 该单元声明受众
+∩ 每一条 supporting claim 的允许受众
+```
+
+然后再叠加 sensitivity、目标接收者与 consent。任何 supporting claim 比结果单元更窄时，结果单元必须随之收窄；交集为空、claim 缺失、claim audiences 缺失或标签冲突时默认拒绝呈现。不能取并集、不能以“多数 claim 可见”放行，也不能通过重新措辞、块级摘要或另加一条宽权限 inference 提升原始支持声明的权限。
+
+面向某个目标受众生成投影时，可以删除无权呈现的分项并重新形成只由剩余 claims 支撑的摘要；不能先生成包含受限信息的摘要再只删除来源。`neutral_export` 只接收有效受众包含 `neutral_export` 的单元，且还需要明确的 export authorization；这不等于 external send authorization。
+
+## V2 只读兼容
+
+旧 `enterprise_ai_diagnosis_result_v2` 可以读取并保留来源：
+
+- `user_anchor` → `agenda.user_wording[]`；
+- `current_judgment` → provisional `priority_focus.statement` 或 `ai_assessment`，按原语义选择；
+- `alternative_judgment` → 带稳定 ID、supporting claims、object refs 与 audiences 的 change signal 或 limitation，不能自动生成第二候选；
+- `work_scene` 只有角色、触发、输入、当前动作、AI 改变、反馈、责任和停止条件都能分别回链时才映射为 `ai_assessment.candidate_change`，否则置为 null；
+- `next_validation` 只有能拆成 V3 的 decision question、evidence unit、单一 user action、evaluation rule、update scope 和 stop conditions 时才映射为 `minimum_validation`，否则置为 null；
+- 旧 `limitations[]` 逐项生成稳定 `limitation_id`、kind、supporting claims、object refs 与 audiences，不能把裸字符串原样塞入 V3；
+- 旧顶层 `supporting_claim_ids[]` 与 `audiences[]` 只作为迁移上限，不能替新分项补齐缺失的来源和权限。
+
+缺失的生意图、候选组合和工作系统字段保持未知。新结果只写 `enterprise_ai_diagnosis_result_v3`。
