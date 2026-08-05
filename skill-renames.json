@@ -3,7 +3,11 @@
   "renames": {
     "lang-skill-feedback": "lang-skill-iteration",
     "五台山论道": "lang-wutai-dialogue",
-    "演变-结构研究": "lang-evolution-structure",
+    "lang-evolution-structure": "lang-research",
+    "演变-结构研究": "lang-research",
+    "演变结构": "lang-research",
+    "演变-结构": "lang-research",
+    "溯源": "lang-research",
     "狼哥朋友圈": "lang-wechat-pyq",
     "lang-wechat-moments": "lang-wechat-pyq"
   }

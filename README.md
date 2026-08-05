@@ -47,7 +47,7 @@ npx skills remove YiXinHui/langskill
 | `/lang-enterprise-ai-diagnosis` | **狼哥企业 AI 提效诊断** | 最多回答 3 次拿到老板语言初诊卡；值得看 AI 时只给一个具体工作画面，不值得就明确停 |
 | `/lang-poster` | 可编辑海报 | 生成 HTML 海报并导出、检查高清 JPG |
 | `/lang-wutai-dialogue` | 五台山论道 | 根据话题推荐跨时代、跨流派思想家，模拟多角色对话与交锋 |
-| `/lang-evolution-structure` | 演变—结构研究 | 从时间演变与当前结构两个维度系统研究对象 |
+| `/lang-research` | 溯源研究 | 自动编排理论根脉、历史演变、当前结构与交汇判断 |
 | `/lang-wechat-pyq` | 狼格拉底朋友圈 | 规划每日朋友圈内容、文案与配图 |
 | `/lang-wechat-writing` | 通用朋友圈写作 | 基于 1—3 份真实来源生成一条可追溯草稿 |
 
