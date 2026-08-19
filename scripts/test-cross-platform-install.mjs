@@ -18,22 +18,29 @@ function assert(condition, message) {
 
 try {
   await fs.mkdir(path.join(testRoot, ".codex"));
-  await execFileAsync(
-    "npx",
-    ["skills", "add", root, "-s", "*", "-a", "codex", "claude-code", "-y"],
-    {
-      cwd: testRoot,
-      env: { ...process.env, DISABLE_TELEMETRY: "1", NO_COLOR: "1" },
-      maxBuffer: 10 * 1024 * 1024,
-    },
-  );
+  const installOptions = {
+    cwd: testRoot,
+    env: { ...process.env, DISABLE_TELEMETRY: "1", NO_COLOR: "1" },
+    maxBuffer: 10 * 1024 * 1024,
+  };
+  await execFileAsync("npx", ["skills", "add", root, "-s", "*", "-a", "codex", "claude-code", "-y"], installOptions);
+  await execFileAsync("npx", ["skills", "add", root, "-s", "*", "-a", "codebuddy", "-y"], installOptions);
 
   const canonicalRoot = path.join(testRoot, ".agents", "skills");
+  const codeBuddyRoot = path.join(testRoot, ".codebuddy", "skills");
   const actualIds = (await fs.readdir(canonicalRoot)).sort();
+  const codeBuddyIds = (await fs.readdir(codeBuddyRoot)).sort();
   assert(JSON.stringify(actualIds) === JSON.stringify(expectedIds), "canonical install set differs from skill-catalog.json");
+  assert(JSON.stringify(codeBuddyIds) === JSON.stringify(expectedIds), "CodeBuddy install set differs from skill-catalog.json");
+  const packageVersion = (await fs.readFile(path.join(root, "VERSION"), "utf8")).trim();
+  const installedLangVersion = (await fs.readFile(path.join(canonicalRoot, "lang", "VERSION"), "utf8")).trim();
+  const codeBuddyLangVersion = (await fs.readFile(path.join(codeBuddyRoot, "lang", "VERSION"), "utf8")).trim();
+  assert(installedLangVersion === packageVersion, "installed lang version marker differs from package VERSION");
+  assert(codeBuddyLangVersion === packageVersion, "CodeBuddy lang version marker differs from package VERSION");
 
   for (const id of expectedIds) {
     await fs.access(path.join(canonicalRoot, id, "SKILL.md"));
+    await fs.access(path.join(codeBuddyRoot, id, "SKILL.md"));
     const claudeEntry = path.join(testRoot, ".claude", "skills", id);
     assert((await fs.lstat(claudeEntry)).isSymbolicLink(), `Claude Code entry is not a symlink: ${id}`);
     assert((await fs.readlink(claudeEntry)) === `../../.agents/skills/${id}`, `Claude Code entry bypasses shared root: ${id}`);
@@ -55,9 +62,10 @@ try {
   for (const skill of installed) {
     assert(skill.agents.includes("Codex"), `Codex cannot discover ${skill.name}`);
     assert(skill.agents.includes("Claude Code"), `Claude Code cannot discover ${skill.name}`);
+    assert(skill.agents.includes("CodeBuddy"), `CodeBuddy cannot discover ${skill.name}`);
   }
 
-  console.log(`OK: ${expectedIds.length} skills install through one shared root and are discoverable by Codex and Claude Code`);
+  console.log(`OK: ${expectedIds.length} skills install through shared Codex/Claude Code roots and CodeBuddy, and are discoverable by all three`);
 } finally {
   await fs.rm(testRoot, { recursive: true, force: true });
 }

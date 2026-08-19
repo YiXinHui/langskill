@@ -70,20 +70,37 @@ async function main() {
 
   const readme = await fs.readFile(path.join(root, "README.md"), "utf8");
   const upgradeSkill = await fs.readFile(path.join(root, "skills", "lang-upgrade", "SKILL.md"), "utf8");
-  const installCommand = "npx skills add YiXinHui/langskill -g -a codex claude-code -s '*' -y";
-  if (!readme.includes(installCommand)) {
+  const sharedInstallCommand = "npx skills add YiXinHui/langskill -g -a codex claude-code -s '*' -y";
+  const codeBuddyInstallCommand = "npx skills add YiXinHui/langskill -g -a codebuddy -s '*' -y";
+  if (!readme.includes(sharedInstallCommand)) {
     fail("README does not use the shared Codex + Claude Code global install command");
   }
-  for (const boundary of ["~/.agents/skills/", "Codex", "Claude Code"]) {
+  if (!readme.includes(codeBuddyInstallCommand)) {
+    fail("README does not provide the CodeBuddy global install command");
+  }
+  for (const boundary of ["~/.agents/skills/", "~/.codebuddy/skills/", "Codex", "Claude Code", "CodeBuddy"]) {
     if (!upgradeSkill.includes(boundary)) {
       fail(`lang-upgrade cross-platform boundary missing: ${boundary}`);
     }
   }
-  if (!upgradeSkill.includes(installCommand)) {
-    fail("lang-upgrade does not converge installs through the shared global command");
+  if (!upgradeSkill.includes(sharedInstallCommand) || !upgradeSkill.includes(codeBuddyInstallCommand)) {
+    fail("lang-upgrade does not converge Codex/Claude Code and CodeBuddy installs");
+  }
+  if (!upgradeSkill.includes("必须单独执行，不能和上面合并")) {
+    fail("lang-upgrade does not protect the separate CodeBuddy install step");
   }
   if (upgradeSkill.includes("只支持通过 `~/.claude/skills/` 安装的版本")) {
     fail("lang-upgrade still declares Claude-only support");
+  }
+  const packageVersion = (await fs.readFile(path.join(root, "VERSION"), "utf8")).trim();
+  const bundledLangVersion = (await fs.readFile(path.join(root, "skills", "lang", "VERSION"), "utf8"))
+    .trim();
+  if (!/^\d+\.\d+\.\d+$/.test(packageVersion) || bundledLangVersion !== packageVersion) {
+    fail("skills/lang/VERSION must match the package VERSION for installed update checks");
+  }
+  const langSkill = await fs.readFile(path.join(root, "skills", "lang", "SKILL.md"), "utf8");
+  if (!langSkill.includes("references/update-check.md")) {
+    fail("lang entry does not route through the load-time update check");
   }
   const upgradeEvals = JSON.parse(
     await fs.readFile(path.join(root, "skills", "lang-upgrade", "evals", "evals.json"), "utf8"),
@@ -97,65 +114,36 @@ async function main() {
     if (!wutaiSkill.includes(stage)) fail(`wutai independent dialogue stage missing: ${stage}`);
   }
 
-  const enterpriseDiagnosisDir = path.join(root, "skills", "lang-enterprise-ai-diagnosis");
-  const enterpriseDiagnosis = await fs.readFile(path.join(enterpriseDiagnosisDir, "SKILL.md"), "utf8");
+  const businessDiagnosisDir = path.join(root, "skills", "lang-business-diagnosis");
+  const businessDiagnosis = await fs.readFile(path.join(businessDiagnosisDir, "SKILL.md"), "utf8");
   for (const reference of [
-    "entry-experience.md",
-    "conversation-guide.md",
+    "experience-contract.md",
     "report-contract.md",
-    "presentation-contract.md",
-    "handoff-contract.md",
-    "judgment-provider-contract.md",
+    "lead-card-contract.md",
+    "handoff-compat.md",
   ]) {
     try {
-      await fs.access(path.join(enterpriseDiagnosisDir, "references", reference));
+      await fs.access(path.join(businessDiagnosisDir, "references", reference));
     } catch {
-      fail(`enterprise AI diagnosis reference missing: ${reference}`);
+      fail(`business diagnosis reference missing: ${reference}`);
     }
-    if (!enterpriseDiagnosis.includes(`references/${reference}`)) {
-      fail(`enterprise AI diagnosis does not route to reference: ${reference}`);
-    }
-  }
-  for (const reference of [
-    "diagnosis-core.md",
-    "case-model.md",
-    "evidence-and-interaction.md",
-    "method-registry.md",
-  ]) {
-    try {
-      await fs.access(path.join(enterpriseDiagnosisDir, "references", "core", reference));
-    } catch {
-      fail(`enterprise AI diagnosis core reference missing: ${reference}`);
-    }
-    if (!enterpriseDiagnosis.includes(`references/core/${reference}`)) {
-      fail(`enterprise AI diagnosis does not route to core reference: ${reference}`);
+    if (!businessDiagnosis.includes(`references/${reference}`)) {
+      fail(`business diagnosis does not route to reference: ${reference}`);
     }
   }
   for (const boundary of [
-    "入口之后形成最小生意图",
-    "整体扫描、具体业务问题或已有 AI 想法",
-    "空激活首轮不预读完整诊断核心",
-    "目标允许并行",
-    "先保留候选，再选择焦点",
-    "焦点选定后还原工作系统",
-    "价值判断与 AI 判断分开",
-    "每轮只有一个明确去向",
-    "允许不做 AI",
-    "默认拒绝内部逻辑和广告",
-    "DiagnosisPresenterV2",
-    "DiagnosisResultV3",
-    "中立初诊摘要时，仍走 `DiagnosisPresenterV2",
-    "明确要求把内容交给另一位咨询师、正式诊断项目或接收系统时",
-    "结果块、分项、candidate change、最小验证、改判信号和限制都有 supporting claims",
-    "非终局 ask 有且只有一个可回答动作",
+    "先给结果预期，再识别入口",
+    "一次只问一个问题",
+    "回放确认",
+    "商业分析前置",
+    "破手段执念",
+    "结尾交付三件套",
+    "全程零广告",
+    "基础先行",
+    "自愿导出的线索卡草稿",
   ]) {
-    if (!enterpriseDiagnosis.includes(boundary)) {
-      fail(`enterprise AI diagnosis boundary missing: ${boundary}`);
-    }
-  }
-  for (const removedBoundary of ["最多 3 次用户回答", "user_turn_count >= 4", "l1_update_used"]) {
-    if (enterpriseDiagnosis.includes(removedBoundary)) {
-      fail(`enterprise AI diagnosis still contains a fixed runtime boundary: ${removedBoundary}`);
+    if (!businessDiagnosis.includes(boundary)) {
+      fail(`business diagnosis boundary missing: ${boundary}`);
     }
   }
 

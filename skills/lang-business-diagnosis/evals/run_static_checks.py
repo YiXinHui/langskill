@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import re
+import json
 from pathlib import Path
 
 
@@ -48,6 +49,7 @@ require_all(
     [
         "帮公司看看",
         "AI 化",
+        "企业咨询出诊",
         "初诊",
     ],
     "description trigger scenes",
@@ -83,8 +85,10 @@ require_all(
     [
         "先给结果预期",
         "一次只问一个问题",
+        "一个判断维度",
         "回放确认",
         "商业分析前置",
+        "行业常识只用来生成问题",
         "基础先行",
         "破手段执念",
         "最小验证动作",
@@ -108,7 +112,14 @@ require_all(
         "首轮禁区",
         "不直接询问公司做什么",
         "一次只问一个问题",
+        "一个判断维度",
+        "是的",
+        "不要把这句肯定自动映射成所有选项都已确认",
+        "单一的是非命题",
         "回放确认",
+        "中性承接",
+        "最终回放",
+        "用户明确要求立即看结论",
         "登记为候选",
         "商业分析前置",
         "用他自己说的业务证据做比较",
@@ -124,6 +135,8 @@ require_all(
     report,
     [
         "带证据边界",
+        "资料暂时齐了",
+        "最终回放",
         "最小验证动作",
         "值得进一步验证",
         "基础先行",
@@ -133,6 +146,7 @@ require_all(
         "不把新问题设为领取条件",
         "单例事件当成公司事实",
         "结构化声明的英文术语",
+        "显式说明缺口",
     ],
     "report contract",
 )
@@ -187,6 +201,7 @@ TRANSCRIPTS = [
     "2026-08-03_transcript_1_manufacturing-ai-platform.md",
     "2026-08-03_transcript_2_ecommerce-support-bot.md",
     "2026-08-03_transcript_3_bakery-cost-reduction.md",
+    "2026-08-19_transcript_4_ecommerce-creative-regression.md",
 ]
 for tname in TRANSCRIPTS:
     tpath = SKILL_DIR / "evals" / tname
@@ -201,7 +216,14 @@ for tname in TRANSCRIPTS:
     require_all(text, ["证据边界", "最小验证", "线索卡"], f"{label} legal ending")
     require("当前没有把它发送给任何人" in text, f"{label} must state no send was executed")
 
+# --- 12. 回归 eval 清单必须保留原场景、相邻场景和明确例外 ---
+evals_path = SKILL_DIR / "evals" / "evals.json"
+evals_data = json.loads(evals_path.read_text(encoding="utf-8"))
+require(evals_data.get("skill_name") == "lang-business-diagnosis", "evals.json skill_name is wrong")
+eval_ids = {item.get("id") for item in evals_data.get("evals", [])}
+require({4, 5, 6, 7}.issubset(eval_ids), "regression evals must include original, adjacent, exception, and list-confirmation cases")
+
 print(
     f"OK: {CHECK_COUNT} checks passed across the entry experience, report, lead card, "
-    "HandoffV2 compatibility contracts, and the three transcript scenarios"
+    "HandoffV2 compatibility contracts, and the four transcript scenarios"
 )

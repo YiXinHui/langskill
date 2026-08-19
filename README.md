@@ -21,10 +21,16 @@ brew install node
 > 2026-07-25 起公开仓采用新的干净历史基线。通过安装命令使用的用户正常升级即可；此前直接 `git clone` 的开发者请重新 clone，不要把旧本地提交继续合并回新主线。
 
 ```bash
+# Codex + Claude Code：共用 ~/.agents/skills/ 正文
 npx skills add YiXinHui/langskill -g -a codex claude-code -s '*' -y
+
+# 腾讯 WorkBuddy / CodeBuddy：安装到 ~/.codebuddy/skills/
+npx skills add YiXinHui/langskill -g -a codebuddy -s '*' -y
 ```
 
-默认全局安装到共享目录 `~/.agents/skills/`。Codex 直接读取共享目录，Claude Code 通过 `~/.claude/skills/` 软链接读取同一份内容；不会在 `~/.codex/skills/` 再建重复入口，也不会生成其他 AI 编辑器目录。需要只给当前项目安装时，去掉 `-g`。
+默认全局安装到共享目录 `~/.agents/skills/`。Codex 直接读取共享目录，Claude Code 通过 `~/.claude/skills/` 软链接读取同一份内容；腾讯 WorkBuddy / CodeBuddy 读取 `~/.codebuddy/skills/`。不会在 `~/.codex/skills/` 再建重复入口。需要只给当前项目安装时，去掉 `-g`，对应目录为 `.agents/skills/`、`.claude/skills/` 和 `.codebuddy/skills/`。
+
+安装后每次触发 `/lang` 都会只读检查公开仓的 `VERSION`。发现远端版本领先时，`lang` 会先询问是否升级；只有回复同意后才转入 `/lang-upgrade`，网络失败或版本无法判断不会阻断正常使用。
 
 ## 卸载
 
@@ -46,7 +52,7 @@ npx skills remove -g
 | `/lang-recording-insight` | 录音洞察 | 从转写中筛选高价值候选，用户选择后再深挖 |
 | `/lang-knowledge-system` | 数字大脑 | 从业务地图、信息流和协作边界设计知识系统 |
 | `/lang-consulting-retro` | 咨询复盘 | 用证据还原咨询转折并沉淀可验证的经验 |
-| `/lang-enterprise-ai-diagnosis` | **狼格拉底企业 AI 提效诊断** | 先选择整体扫描、具体业务问题或已有 AI 想法，再理清生意、职责和复合目标，比较值得先看的工作系统并形成最小验证 |
+| `/lang-business-diagnosis` | **企业咨询式商业初诊** | 先识别整体扫描、具体业务问题或已有 AI 想法，再还原生意与业务证据，形成有边界的初诊结论和最小验证动作 |
 | `/lang-sales-master` | **销售大宗师** | 面向大客户、复杂销售和长周期跟进，基于客户原话与行动判断阶段、成交窗口、风险和下一步 |
 | `/lang-poster` | 可编辑海报 | 生成 HTML 海报并导出、检查高清 JPG |
 | `/lang-wutai-dialogue` | 五台山论道 | 根据话题推荐跨时代、跨流派思想家，模拟多角色对话与交锋 |
@@ -54,10 +60,14 @@ npx skills remove -g
 | `/lang-wechat-pyq` | 狼格拉底朋友圈 | 规划每日朋友圈内容、文案与配图 |
 | `/lang-wechat-writing` | 通用朋友圈写作 | 基于 1—3 份真实来源生成一条可追溯草稿 |
 
-只安装“狼哥 AI 提效诊断分身”：
+只安装“企业咨询式商业初诊”：
 
 ```bash
-npx skills add YiXinHui/langskill -g -a codex claude-code -s lang-enterprise-ai-diagnosis -y
+# Codex + Claude Code
+npx skills add YiXinHui/langskill -g -a codex claude-code -s lang-business-diagnosis -y
+
+# WorkBuddy / CodeBuddy
+npx skills add YiXinHui/langskill -g -a codebuddy -s lang-business-diagnosis -y
 ```
 
 ## 核心理念

@@ -45,7 +45,7 @@ node scripts/validate-sharing-system.mjs
 
 ## 安装与全局发现
 
-公开仓使用统一安装器同时接入 Codex 与 Claude Code：
+公开仓使用统一安装器接入 Codex、Claude Code 与腾讯 WorkBuddy / CodeBuddy：
 
 ```text
 项目仓或安装包中的 Skill 正文
@@ -53,13 +53,22 @@ node scripts/validate-sharing-system.mjs
 ~/.agents/skills/<name>        共享入口，Codex 直接发现
         ↓
 ~/.claude/skills/<name>        指向共享入口的软链接
+~/.codebuddy/skills/<name>     CodeBuddy / WorkBuddy 入口
 ```
 
-同一个 Skill 在同一宿主只保留一个可发现入口。Codex 已直接扫描 `~/.agents/skills/`，不再为 LangSkill 同时创建 `~/.codex/skills/<name>`；全局入口存在后，也不在 Desktop 工作区重复映射。开发机可以让共享入口直接指向本仓 `skills/<name>/`，公开安装用户由统一安装器维护实体和锁文件。
+Codex 与 Claude Code 继续通过共享入口收敛；CodeBuddy 使用自己的 `~/.codebuddy/skills/` 目录。当前 `skills` 安装器必须把 CodeBuddy 作为单独的第二条安装命令，否则 universal agent 收敛可能漏掉 `.codebuddy/skills/`。同一个 Skill 在同一宿主只保留一个可发现入口。Codex 已直接扫描 `~/.agents/skills/`，不再为 LangSkill 同时创建 `~/.codex/skills/<name>`；全局入口存在后，也不在 Desktop 工作区重复映射。开发机可以让共享入口直接指向本仓 `skills/<name>/`，公开安装用户由统一安装器维护实体和锁文件。
 
-升级前先区分开发仓软链接与普通安装：开发仓有未提交改动时不得覆盖；普通安装和旧 Claude 单端安装统一通过 `npx skills add ... -g -a codex claude-code` 收敛到共享结构。升级后必须验证机器清单中的全部 Skill 在两端各出现一次。
+升级前先区分开发仓软链接与普通安装：开发仓有未提交改动时不得覆盖；普通安装和旧 Claude 单端安装先通过 `npx skills add ... -g -a codex claude-code` 收敛到共享结构，再单独执行 `npx skills add ... -g -a codebuddy` 同步 WorkBuddy/CodeBuddy。升级后必须验证机器清单中的全部 Skill 在 Codex、Claude Code 和 CodeBuddy 三端各出现一次。
 
-## 企业 AI 诊断：一个产品、三层结构
+## 当前企业咨询出诊入口
+
+当前公开企业咨询出诊入口是 `lang-business-diagnosis`。它面向陌生老板做企业咨询式商业初诊：先给结果预期并识别整体扫描、具体业务问题或已有 AI 想法，再用一轮低负担对话还原生意，用用户自己的业务证据比较 AI 候选，最后交付带边界的初诊结论、最小验证动作和自愿导出的线索卡草稿。
+
+当前 Skill 的稳定规则由主文档和四份自包含 reference 共同承担：入口与对话体验、初诊结果、线索卡、旧交接格式兼容。公开边界止于初诊，不承诺 ROI、实施、报价、固定周期或正式诊断报告；旧版内部对象、判断库和正式交接流程不再作为新会话入口。
+
+旧版企业 AI 诊断的设计与评测已移入 `archive/lang-enterprise-ai-diagnosis-2026-08-19/`，以下内容只作迁移背景，不是当前 Skill 的执行规范。
+
+## 历史设计：旧版企业 AI 诊断
 
 `lang-enterprise-ai-diagnosis` 是面向老板和管理者的公开咨询式初诊。空激活先给用户清楚的结果预期，再识别整体扫描、具体业务问题或已有 AI 想法；用户已经提供实际上下文时直接进入。随后形成公司生意、回答者实际职责和本次复合目标，从职责、价值链与用户已经报告的现象中形成候选工作系统；选择焦点后还原当前工作怎样产生结果，最后判断 AI 是否值得进入以及先验证什么。公开初诊不承诺公司级代表性、正式优先级、因果、ROI、实施和验收。
 

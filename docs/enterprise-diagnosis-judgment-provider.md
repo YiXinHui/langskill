@@ -1,6 +1,6 @@
-# 企业 AI 诊断判断库宿主架构
+# 旧版企业 AI 诊断判断库宿主架构
 
-> 状态：可选宿主扩展。运行时字段以 [`judgment-provider-contract.md`](../skills/lang-enterprise-ai-diagnosis/references/judgment-provider-contract.md) 为唯一契约；本文只说明权威源、同步、索引和安全架构。
+> 状态：随旧版 Skill 一并归档，仅供迁移参考。旧运行时契约见 [`judgment-provider-contract.md`](../archive/lang-enterprise-ai-diagnosis-2026-08-19/references/judgment-provider-contract.md)；当前公开入口是 `lang-business-diagnosis`，不以本文作为当前执行规范。
 
 ## 定位
 

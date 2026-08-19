@@ -19,3 +19,9 @@ skills/*/evals/*
 !skills/*/evals/run_static_checks.py
 !skills/*/evals/*_smoke-results.md
 !skills/lang-poster/evals/minimal-poster.html
+
+# 归档 Skill 的本地评测调试产物
+archive/*/evals/*
+!archive/*/evals/evals.json
+!archive/*/evals/run_static_checks.py
+!archive/*/evals/*_smoke-results.md

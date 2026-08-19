@@ -1,0 +1,52 @@
+{
+  "skill_name": "lang",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "我触发 /lang，当前远端 LangSkill 版本高于本地版本，我还没有回答是否升级。",
+      "expected_output": "先提示发现新版本并询问是否现在升级，暂停菜单和原问题路由；不直接执行升级。",
+      "expectations": [
+        "先进行加载时更新检查",
+        "远端领先时询问用户确认",
+        "确认前不运行 lang-upgrade",
+        "确认前不展示原有路由菜单"
+      ],
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "我触发 /lang，版本检查结果是本地与远端一致。我想理清一个判断：为什么团队明明有工具，执行结果还是不稳定？",
+      "expected_output": "版本一致时静默继续，直接按明确问题路由到 /lang-think，不再次询问更新。",
+      "expectations": [
+        "版本一致时不打断用户",
+        "直接路由到 lang-think",
+        "不展示无关升级说明"
+      ],
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "上一轮 lang 提示有新版本，我回复：好，现在更新。",
+      "expected_output": "把该回复视为明确升级授权，直接转入 /lang-upgrade，不重复确认；由 lang-upgrade 负责保护本地改动、安装和验证。",
+      "expectations": [
+        "识别为上一轮更新确认",
+        "直接启动 lang-upgrade",
+        "不重复询问同一个问题",
+        "保留 lang-upgrade 的开发仓和备份安全边界"
+      ],
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "我准备把 LangSkill 装到腾讯 WorkBuddy / CodeBuddy。",
+      "expected_output": "识别 WorkBuddy 的安装目标为 codebuddy agent，使用 ~/.codebuddy/skills/；与 Codex + Claude Code 的共享安装分开执行，不声称三者一次安装就全部生效。",
+      "expectations": [
+        "识别 codebuddy 是 WorkBuddy 的安装器 agent 名称",
+        "使用 ~/.codebuddy/skills/ 或项目级 .codebuddy/skills/",
+        "CodeBuddy 安装命令与 Codex/Claude Code 命令分开",
+        "保留 Codex/Claude Code 的共享入口结构"
+      ],
+      "files": []
+    }
+  ]
+}

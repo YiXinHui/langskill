@@ -1,11 +1,13 @@
 ---
 name: lang-upgrade
-description: 升级或修复 LangSkill 的全局安装，并把旧 Claude 单端安装、分散软链接和重复 Codex 入口收敛到 ~/.agents/skills 共享结构。用户说“升级 langskill”“修复 langskill 安装”“让 Codex 和 Claude Code 都能调用”时使用。
+description: 升级或修复 LangSkill 的全局安装，并把旧 Claude 单端安装、分散软链接和重复 Codex 入口收敛到 Codex、Claude Code 与 WorkBuddy/CodeBuddy 的可发现结构。用户说“升级 langskill”“修复 langskill 安装”“让 Codex、Claude Code 和 WorkBuddy 都能调用”，或在 lang 启动检查后明确同意升级时使用。
 ---
 
 # lang-upgrade
 
-把 LangSkill 升级到最新公开版本，同时保持 Codex 与 Claude Code 使用同一份正文。
+把 LangSkill 升级到最新公开版本，同时保持 Codex 与 Claude Code 使用共享正文，并把同版本同步到 WorkBuddy/CodeBuddy。
+
+当它由 `lang` 的加载时检查转入时，上一轮用户对“是否现在升级”的明确肯定就是本次升级授权，不要再次重复询问；仍然必须执行下面的开发仓保护、备份、安装和三端验证流程。
 
 ## 目标结构
 
@@ -13,9 +15,10 @@ description: 升级或修复 LangSkill 的全局安装，并把旧 Claude 单端
 ~/.agents/skills/<name>          共享入口，Codex 直接发现
         ↓
 ~/.claude/skills/<name>          指向共享入口的软链接
+~/.codebuddy/skills/<name>       CodeBuddy / WorkBuddy 入口
 ```
 
-Codex 已直接扫描 `~/.agents/skills/`，不要再创建 `~/.codex/skills/<name>`。全局入口存在后，也不要在 Desktop 或当前项目中重复映射同一个 LangSkill。
+Codex 已直接扫描 `~/.agents/skills/`，腾讯 WorkBuddy / CodeBuddy 使用 `~/.codebuddy/skills/`。不要再创建 `~/.codex/skills/<name>`。全局入口存在后，也不要在 Desktop 或当前项目中重复映射同一个 LangSkill。
 
 公开仓 `skill-catalog.json` 是完整 Skill 清单。不要手写一份长期维护的名称数组。
 
@@ -33,7 +36,7 @@ Codex 已直接扫描 `~/.agents/skills/`，不要再创建 `~/.codex/skills/<na
 
 ### 2. 判断当前模式
 
-检查 `~/.agents/skills/lang`、`~/.claude/skills/lang` 和 `~/.codex/skills/lang`，对已有入口执行 `realpath`。
+检查 `~/.agents/skills/lang`、`~/.claude/skills/lang`、`~/.codebuddy/skills/lang` 和 `~/.codex/skills/lang`，对已有入口执行 `realpath`。
 
 分为三种状态：
 
@@ -70,19 +73,24 @@ Codex 已直接扫描 `~/.agents/skills/`，不要再创建 `~/.codex/skills/<na
 旧安装、缺失映射或有新版本时执行：
 
 ```bash
+# Codex + Claude Code 的共享入口
 npx skills add YiXinHui/langskill -g -a codex claude-code -s '*' -y
+
+# WorkBuddy / CodeBuddy 的入口（必须单独执行，不能和上面合并）
+npx skills add YiXinHui/langskill -g -a codebuddy -s '*' -y
 ```
 
-这条命令负责把全部正文安装到 `~/.agents/skills/`，并为 Claude Code 建立指向共享入口的软链接。不要把 Codex 安装成第二份实体。
+第一条命令负责把全部正文安装到 `~/.agents/skills/`，并为 Claude Code 建立指向共享入口的软链接；第二条命令把同一版本复制到 `~/.codebuddy/skills/`。两条命令必须分开执行，否则当前 `skills` 安装器的 universal agent 收敛逻辑可能只建立 Codex/Claude Code 入口而漏掉 CodeBuddy。不要把 Codex 安装成第二份实体。
 
 安装成功后：
 
 1. 按 `skill-renames.json` 处理旧名称；只删除清单声明的旧入口。
 2. 如果 `~/.codex/skills/<name>` 是指向同一共享正文的软链接，移除这个重复入口。
 3. 如果 `~/.codex/skills/<name>` 是独立目录或指向其他内容，保留并报告冲突。
-4. 把远端版本写入 `~/.agents/.langskill-version`。
+4. 确认 `~/.codebuddy/skills/<name>` 已由第二条安装命令更新。
+5. 把远端版本写入 `~/.agents/.langskill-version`。
 
-如果本地版本与远端一致，但清单不完整、双端不可见或存在重复入口，仍需执行收敛；只有“版本一致 + 结构正确 + 验证通过”才能直接结束。
+如果本地版本与远端一致，但清单不完整、三端不可见或存在重复入口，仍需执行收敛；只有“版本一致 + 结构正确 + 验证通过”才能直接结束。
 
 ### 6. 验证
 
@@ -90,10 +98,12 @@ npx skills add YiXinHui/langskill -g -a codex claude-code -s '*' -y
 
 1. `skill-catalog.json` 中每个 Skill 的 `~/.agents/skills/<name>/SKILL.md` 可读。
 2. Claude Code 入口解析到同一共享正文。
-3. Codex 没有同名 `~/.codex/skills/` 重复入口。
-4. `npx skills list -g -a codex --json` 包含完整清单。
-5. `npx skills list -g -a claude-code --json` 包含完整清单。
-6. 同一平台、同一 `name` 只出现一次。
+3. CodeBuddy 入口位于 `~/.codebuddy/skills/`，完整清单可读。
+4. Codex 没有同名 `~/.codex/skills/` 重复入口。
+5. `npx skills list -g -a codex --json` 包含完整清单。
+6. `npx skills list -g -a claude-code --json` 包含完整清单。
+7. `npx skills list -g -a codebuddy --json` 包含完整清单。
+8. 同一平台、同一 `name` 只出现一次。
 
 全局 Skill 较多时，列表 JSON 可能超过终端输出上限。先写入 `mktemp -d` 下的临时文件，再用 `jq` 按 `skill-catalog.json` 过滤；验证后删除临时目录，不把测试文件放进 `~/.agents/skills/`。
 
@@ -110,9 +120,10 @@ LangSkill {旧版本或 unknown} → {新版本}
 共享入口：{数量}/{清单数量}
 Codex：{可见数量}/{清单数量}
 Claude Code：{可见数量}/{清单数量}
+CodeBuddy：{可见数量}/{清单数量}
 重复入口：{0 或明细}
 备份：{路径或未创建}
 结果：已升级 / 已是最新 / 因冲突未改动 / 已恢复
 ```
 
-没有完成双端清单验证时，不报告“升级完成”。
+没有完成 Codex、Claude Code 和 CodeBuddy 三端清单验证时，不报告“升级完成”。

@@ -7,9 +7,10 @@
       "expected_output": "识别为旧 Claude 单端安装，先保留可恢复备份，再通过统一全局安装命令迁移到 ~/.agents/skills；Claude Code 指向共享入口，Codex 直接发现共享入口，不继续制造 ~/.codex/skills 副本。",
       "expectations": [
         "使用统一安装器同时指定 codex 和 claude-code",
+        "单独为 CodeBuddy 执行 codebuddy agent 安装",
         "最终共享入口位于 ~/.agents/skills",
         "不会把 Claude Code 目录继续当作唯一正文",
-        "升级后验证机器清单中的全部 Skill 在双端可见"
+        "升级后验证机器清单中的全部 Skill 在 Codex、Claude Code 和 CodeBuddy 可见"
       ],
       "files": []
     },
@@ -28,12 +29,25 @@
     {
       "id": 3,
       "prompt": "检查并升级 langskill。现在 14 个 Skill 已经全部从 ~/.agents/skills 共享，Claude Code 软链正常，Codex 没有重复入口，而且远端版本没有变化。",
-      "expected_output": "验证清单、双端发现和单一入口后报告已是最新状态，不重装、不删除入口，也不创建 Desktop 或 ~/.codex 重复映射。",
+      "expected_output": "验证清单、三端发现和单一入口后报告已是最新状态，不重装、不删除入口，也不创建 Desktop 或 ~/.codex 重复映射。",
       "expectations": [
         "核对 skill-catalog 中的完整清单",
-        "确认 Codex 和 Claude Code 各只有一个可发现入口",
+        "确认 Codex、Claude Code 和 CodeBuddy 各只有一个可发现入口",
         "版本未变化时不执行重装",
-        "不创建工作区级重复入口"
+        "不创建工作区级重复入口",
+        "不把三种 agent 合并成会漏掉 CodeBuddy 的单条安装命令"
+      ],
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "我只想让 LangSkill 在腾讯 WorkBuddy / CodeBuddy 里可用，应该怎么装和怎么验证？",
+      "expected_output": "使用 npx skills add ... -a codebuddy -s '*' -y 单独安装到 ~/.codebuddy/skills/；用 npx skills list -g -a codebuddy --json 验证完整清单，不要求用户继续配置 ~/.codex/skills。",
+      "expectations": [
+        "使用 codebuddy agent",
+        "目标目录为 ~/.codebuddy/skills/",
+        "安装命令不与 Codex/Claude Code 合并",
+        "包含 CodeBuddy 专属发现验证"
       ],
       "files": []
     }
