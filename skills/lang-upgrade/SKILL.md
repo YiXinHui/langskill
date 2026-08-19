@@ -1,183 +1,118 @@
 ---
 name: lang-upgrade
-description: 升级 langskill 到最新版本
-trigger: /lang-upgrade、/升级langskill、「升级 langskill」
+description: 升级或修复 LangSkill 的全局安装，并把旧 Claude 单端安装、分散软链接和重复 Codex 入口收敛到 ~/.agents/skills 共享结构。用户说“升级 langskill”“修复 langskill 安装”“让 Codex 和 Claude Code 都能调用”时使用。
 ---
 
 # lang-upgrade
 
-升级 langskill（狼格拉底 ASOP）到最新版本，显示更新内容。
+把 LangSkill 升级到最新公开版本，同时保持 Codex 与 Claude Code 使用同一份正文。
 
-## 使用场景
+## 目标结构
 
-- 用户主动调用 `/lang-upgrade` 升级
-- 显示版本变化和更新内容
+```text
+~/.agents/skills/<name>          共享入口，Codex 直接发现
+        ↓
+~/.claude/skills/<name>          指向共享入口的软链接
+```
+
+Codex 已直接扫描 `~/.agents/skills/`，不要再创建 `~/.codex/skills/<name>`。全局入口存在后，也不要在 Desktop 或当前项目中重复映射同一个 LangSkill。
+
+公开仓 `skill-catalog.json` 是完整 Skill 清单。不要手写一份长期维护的名称数组。
 
 ## 升级流程
 
-### Step 1: 检测安装位置
+### 1. 恢复清单与远端版本
+
+从公开仓读取：
+
+- `skill-catalog.json`
+- `skill-renames.json`
+- `VERSION`
+
+网络不可用或任一文件解析失败时停止，不改变本地安装。下载内容放在 `mktemp -d` 创建的临时目录，不放进 Skill 发现根。
+
+### 2. 判断当前模式
+
+检查 `~/.agents/skills/lang`、`~/.claude/skills/lang` 和 `~/.codex/skills/lang`，对已有入口执行 `realpath`。
+
+分为三种状态：
+
+1. **开发仓映射**：共享入口是软链接，目标位于含 `.git`、`skill-catalog.json` 和 `skills/lang/` 的仓库。
+2. **统一安装**：共享入口存在，Claude Code 指向共享入口，Codex 没有重复入口。
+3. **旧安装或未安装**：只有 Claude Code 入口、入口散落在多个目录，或尚未安装。
+
+同名路径如果是独立实体且内容与目标不同，停止并报告冲突，不覆盖、不合并。
+
+### 3. 保护开发仓
+
+开发仓是当前机器的正文权威，不得用下载副本覆盖。
+
+- 工作树有未提交修改时停止，列出状态，保留现有映射。
+- 当前分支不是 `main` 时停止，不擅自切分支。
+- 工作树干净且位于 `main` 时，才执行 `git pull --ff-only`。
+- 拉取后运行仓内 `node scripts/validate-sharing-system.mjs`、`node scripts/test-cross-platform-install.mjs` 和 `./pre-check.sh`。
+- 按最新 `skill-catalog.json` 补齐 `~/.agents/skills/` 与 `~/.claude/skills/` 入口；新增入口指向同一开发仓，不复制正文。
+
+任一验证失败都保留工作树和现有映射，报告失败，不宣布升级完成。
+
+### 4. 备份普通安装
+
+普通安装或旧安装升级前，把清单内现有入口和旧名称保存到：
+
+```text
+~/.agents/backups/langskill-YYYYMMDD-HHMMSS/
+```
+
+备份清单、解析后的真实目标和 `~/.agents/.langskill-version`。只处理公开仓清单与改名表声明的名称，不使用 `lang*` 通配符删除其他内容。
+
+### 5. 通过统一安装器收敛
+
+旧安装、缺失映射或有新版本时执行：
 
 ```bash
-if [ -d "$HOME/.claude/skills/lang" ]; then
-  INSTALL_DIR="$HOME/.claude/skills"
-  echo "Install location: $INSTALL_DIR"
-else
-  echo "ERROR: langskill not found in ~/.claude/skills/"
-  echo "请先安装：npx skills add YiXinHui/langskill --skill '*' --agent claude -y"
-  exit 1
-fi
+npx skills add YiXinHui/langskill -g -a codex claude-code -s '*' -y
 ```
 
-### Step 2: 获取当前版本
+这条命令负责把全部正文安装到 `~/.agents/skills/`，并为 Claude Code 建立指向共享入口的软链接。不要把 Codex 安装成第二份实体。
 
-```bash
-OLD_VERSION=$(cat "$HOME/.claude/skills/lang-upgrade/../../VERSION" 2>/dev/null || echo "unknown")
-echo "Current version: $OLD_VERSION"
+安装成功后：
+
+1. 按 `skill-renames.json` 处理旧名称；只删除清单声明的旧入口。
+2. 如果 `~/.codex/skills/<name>` 是指向同一共享正文的软链接，移除这个重复入口。
+3. 如果 `~/.codex/skills/<name>` 是独立目录或指向其他内容，保留并报告冲突。
+4. 把远端版本写入 `~/.agents/.langskill-version`。
+
+如果本地版本与远端一致，但清单不完整、双端不可见或存在重复入口，仍需执行收敛；只有“版本一致 + 结构正确 + 验证通过”才能直接结束。
+
+### 6. 验证
+
+必须同时通过：
+
+1. `skill-catalog.json` 中每个 Skill 的 `~/.agents/skills/<name>/SKILL.md` 可读。
+2. Claude Code 入口解析到同一共享正文。
+3. Codex 没有同名 `~/.codex/skills/` 重复入口。
+4. `npx skills list -g -a codex --json` 包含完整清单。
+5. `npx skills list -g -a claude-code --json` 包含完整清单。
+6. 同一平台、同一 `name` 只出现一次。
+
+全局 Skill 较多时，列表 JSON 可能超过终端输出上限。先写入 `mktemp -d` 下的临时文件，再用 `jq` 按 `skill-catalog.json` 过滤；验证后删除临时目录，不把测试文件放进 `~/.agents/skills/`。
+
+### 7. 失败恢复
+
+安装或验证失败时，只恢复备份清单中属于 LangSkill 的入口。不要删除整个 `~/.agents/skills/`、`~/.claude/skills/` 或 `~/.codex/skills/`。
+
+恢复后再次检查 `SKILL.md` 可读性，并报告：失败步骤、已恢复入口、仍需人工处理的冲突和备份位置。
+
+## 交付格式
+
+```text
+LangSkill {旧版本或 unknown} → {新版本}
+共享入口：{数量}/{清单数量}
+Codex：{可见数量}/{清单数量}
+Claude Code：{可见数量}/{清单数量}
+重复入口：{0 或明细}
+备份：{路径或未创建}
+结果：已升级 / 已是最新 / 因冲突未改动 / 已恢复
 ```
 
-### Step 3: 获取远程版本
-
-```bash
-REMOTE_VERSION=$(curl -sL https://raw.githubusercontent.com/YiXinHui/langskill/main/VERSION || echo "")
-if [ -z "$REMOTE_VERSION" ]; then
-  echo "ERROR: Cannot fetch remote version"
-  exit 1
-fi
-echo "Remote version: $REMOTE_VERSION"
-```
-
-### Step 4: 比较版本
-
-如果 `OLD_VERSION` 等于 `REMOTE_VERSION`，告诉用户已是最新版本，结束。
-
-否则继续升级。
-
-### Step 5: 备份当前版本
-
-使用清单文件 `.langskill-manifest` 追踪 langskill 管理的 skill 目录。备份清单中的所有目录。
-
-```bash
-BACKUP_DIR="$HOME/.claude/skills/.langskill-backup-$(date +%Y%m%d-%H%M%S)"
-MANIFEST="$HOME/.claude/skills/.langskill-manifest"
-mkdir -p "$BACKUP_DIR"
-
-if [ -f "$MANIFEST" ]; then
-  while IFS= read -r skill_dir; do
-    [ -d "$HOME/.claude/skills/$skill_dir" ] && cp -r "$HOME/.claude/skills/$skill_dir" "$BACKUP_DIR/"
-  done < "$MANIFEST"
-else
-  # 首次升级，兜底备份 lang* 和本次改名前的中文目录
-  cp -r "$HOME/.claude/skills"/lang* "$BACKUP_DIR/" 2>/dev/null || true
-  for legacy_skill in "五台山论道" "演变-结构研究" "狼哥朋友圈"; do
-    [ -d "$HOME/.claude/skills/$legacy_skill" ] && cp -r "$HOME/.claude/skills/$legacy_skill" "$BACKUP_DIR/"
-  done
-fi
-echo "Backup created: $BACKUP_DIR"
-```
-
-### Step 6: 下载最新版本
-
-```bash
-TMP_DIR=$(mktemp -d)
-git clone --depth 1 https://github.com/YiXinHui/langskill.git "$TMP_DIR/langskill"
-if [ $? -ne 0 ]; then
-  echo "ERROR: Failed to clone repository"
-  exit 1
-fi
-echo "Downloaded to: $TMP_DIR/langskill"
-```
-
-### Step 7: 替换旧版本
-
-从仓库的 `skills/` 目录动态获取所有 skill 名，逐个替换，并更新清单文件。再读取 `skill-renames.json`，清理历史名称，避免重命名后出现新旧两个入口。
-
-```bash
-MANIFEST="$HOME/.claude/skills/.langskill-manifest"
-
-# 读取旧清单，删除旧版 skill 目录
-if [ -f "$MANIFEST" ]; then
-  while IFS= read -r skill_dir; do
-    rm -rf "$HOME/.claude/skills/$skill_dir"
-  done < "$MANIFEST"
-else
-  # 首次升级兜底
-  rm -rf "$HOME/.claude/skills"/lang*
-fi
-
-# 清理仓库声明的历史名称。名称由仓库控制，不接受用户输入。
-node -e '
-const fs = require("fs");
-const path = require("path");
-const root = process.argv[1];
-const renameFile = process.argv[2];
-const data = JSON.parse(fs.readFileSync(renameFile, "utf8"));
-for (const oldName of Object.keys(data.renames || {})) {
-  fs.rmSync(path.join(root, oldName), { recursive: true, force: true });
-}
-' "$HOME/.claude/skills" "$TMP_DIR/langskill/skill-renames.json"
-
-# 复制仓库中所有 skill 目录，并生成新清单
-> "$MANIFEST"
-for skill_path in "$TMP_DIR/langskill/skills"/*/; do
-  skill_name=$(basename "$skill_path")
-  cp -r "$skill_path" "$HOME/.claude/skills/$skill_name"
-  echo "$skill_name" >> "$MANIFEST"
-done
-
-rm -rf "$TMP_DIR"
-echo "Upgrade completed"
-```
-
-如果复制失败，从备份恢复：
-
-```bash
-if [ $? -ne 0 ]; then
-  echo "ERROR: Upgrade failed, restoring from backup..."
-  if [ -f "$MANIFEST" ]; then
-    while IFS= read -r skill_dir; do
-      rm -rf "$HOME/.claude/skills/$skill_dir"
-    done < "$MANIFEST"
-  fi
-  cp -r "$BACKUP_DIR"/* "$HOME/.claude/skills/"
-  echo "Restored from backup"
-  exit 1
-fi
-```
-
-### Step 8: 显示更新内容
-
-读取 `$HOME/.claude/skills/lang/../../README.md`（如果存在），提取从 `OLD_VERSION` 到 `REMOTE_VERSION` 之间的更新内容。
-
-格式：
-
-```
-langskill v{REMOTE_VERSION} — 从 v{OLD_VERSION} 升级成功！
-
-更新内容：
-- [从 README 提取的更新要点]
-
-升级完成！
-```
-
-### Step 9: 清理备份
-
-询问用户是否删除备份：
-
-```bash
-echo "Backup location: $BACKUP_DIR"
-echo "Keep backup? (will be auto-deleted in 7 days if not used)"
-```
-
-不强制删除，让用户自己决定。
-
-## 错误处理
-
-- 网络失败：提示用户检查网络连接
-- Git clone 失败：从备份恢复
-- 文件复制失败：从备份恢复
-
-## 注意事项
-
-- 只支持通过 `~/.claude/skills/` 安装的版本
-- 升级前自动备份，失败时自动恢复
-- 不需要用户手动操作 git
+没有完成双端清单验证时，不报告“升级完成”。

@@ -1,0 +1,41 @@
+{
+  "skill_name": "lang-upgrade",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "我的 LangSkill 以前只装在 ~/.claude/skills，现在升级最新版，并让 Codex 和 Claude Code 都能调用。",
+      "expected_output": "识别为旧 Claude 单端安装，先保留可恢复备份，再通过统一全局安装命令迁移到 ~/.agents/skills；Claude Code 指向共享入口，Codex 直接发现共享入口，不继续制造 ~/.codex/skills 副本。",
+      "expectations": [
+        "使用统一安装器同时指定 codex 和 claude-code",
+        "最终共享入口位于 ~/.agents/skills",
+        "不会把 Claude Code 目录继续当作唯一正文",
+        "升级后验证机器清单中的全部 Skill 在双端可见"
+      ],
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "升级 langskill。当前 ~/.agents/skills/lang 是软链接，指向一个有未提交修改的 langskill Git 开发仓。",
+      "expected_output": "识别开发仓映射并停止覆盖，不用远端安装副本替换项目源码；明确报告未提交改动是阻塞条件，保留现有软链接和工作树。",
+      "expectations": [
+        "识别共享入口指向 Git 开发仓",
+        "发现工作树未提交改动后停止升级",
+        "不覆盖、删除或复制开发仓正文",
+        "说明清理或提交改动后才能继续"
+      ],
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "检查并升级 langskill。现在 14 个 Skill 已经全部从 ~/.agents/skills 共享，Claude Code 软链正常，Codex 没有重复入口，而且远端版本没有变化。",
+      "expected_output": "验证清单、双端发现和单一入口后报告已是最新状态，不重装、不删除入口，也不创建 Desktop 或 ~/.codex 重复映射。",
+      "expectations": [
+        "核对 skill-catalog 中的完整清单",
+        "确认 Codex 和 Claude Code 各只有一个可发现入口",
+        "版本未变化时不执行重装",
+        "不创建工作区级重复入口"
+      ],
+      "files": []
+    }
+  ]
+}

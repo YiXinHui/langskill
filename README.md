@@ -21,16 +21,18 @@ brew install node
 > 2026-07-25 起公开仓采用新的干净历史基线。通过安装命令使用的用户正常升级即可；此前直接 `git clone` 的开发者请重新 clone，不要把旧本地提交继续合并回新主线。
 
 ```bash
-npx skills add YiXinHui/langskill --skill '*' --agent claude -y
+npx skills add YiXinHui/langskill -g -a codex claude-code -s '*' -y
 ```
 
-只安装到 `.claude/skills/` 目录，不会生成其他 AI 编辑器的垃圾目录。安装时会提示选择安装目录（全局 `~/.claude/` 或当前项目），按需选择即可。
+默认全局安装到共享目录 `~/.agents/skills/`。Codex 直接读取共享目录，Claude Code 通过 `~/.claude/skills/` 软链接读取同一份内容；不会在 `~/.codex/skills/` 再建重复入口，也不会生成其他 AI 编辑器目录。需要只给当前项目安装时，去掉 `-g`。
 
 ## 卸载
 
 ```bash
-npx skills remove YiXinHui/langskill
+npx skills remove -g
 ```
+
+在交互列表中选择 `lang` 与 `lang-*` 条目。
 
 ## 包含的工具
 
@@ -44,7 +46,7 @@ npx skills remove YiXinHui/langskill
 | `/lang-recording-insight` | 录音洞察 | 从转写中筛选高价值候选，用户选择后再深挖 |
 | `/lang-knowledge-system` | 数字大脑 | 从业务地图、信息流和协作边界设计知识系统 |
 | `/lang-consulting-retro` | 咨询复盘 | 用证据还原咨询转折并沉淀可验证的经验 |
-| `/lang-enterprise-ai-diagnosis` | **狼哥企业 AI 提效诊断** | 最多回答 3 次拿到老板语言初诊卡；值得看 AI 时只给一个具体工作画面，不值得就明确停 |
+| `/lang-enterprise-ai-diagnosis` | **狼格拉底企业 AI 提效诊断** | 先选择整体扫描、具体业务问题或已有 AI 想法，再理清生意、职责和复合目标，比较值得先看的工作系统并形成最小验证 |
 | `/lang-poster` | 可编辑海报 | 生成 HTML 海报并导出、检查高清 JPG |
 | `/lang-wutai-dialogue` | 五台山论道 | 根据话题推荐跨时代、跨流派思想家，模拟多角色对话与交锋 |
 | `/lang-research` | 溯源研究 | 自动编排理论根脉、历史演变、当前结构与交汇判断 |
@@ -54,12 +56,12 @@ npx skills remove YiXinHui/langskill
 只安装“狼哥 AI 提效诊断分身”：
 
 ```bash
-npx skills add YiXinHui/langskill --skill lang-enterprise-ai-diagnosis --agent claude -y
+npx skills add YiXinHui/langskill -g -a codex claude-code -s lang-enterprise-ai-diagnosis -y
 ```
 
 ## 核心理念
 
-- **人只会为自己得出的结论买单** — 诊断不是给答案，是帮人问对问题
+- **人只会为自己得出的结论买单** — 诊断通过问对问题，帮助人形成自己的结论
 - **私有方法论 > 公开AI智能** — AI是放大器，放大你的强项也放大你的弱项
 - **AI系统一定是长出来的** — 先打穿一个点，别想一步到位
 
@@ -78,7 +80,7 @@ AI提效大师。意心会创始人，专注为中小企业提供AI智能体咨�
 2. **更新 README 工具表** — 新增/删除 skill 时同步更新上面的表格
 3. **版本号规则** — `major.minor.patch`：新增 skill = minor+1，修 bug/微调 = patch+1
 4. **更新机器清单** — 新增/删除 skill 时同步更新 `skill-catalog.json`
-5. **运行发布检查** — `node scripts/validate-sharing-system.mjs && ./pre-check.sh`
+5. **运行发布检查** — `node scripts/validate-sharing-system.mjs && node scripts/test-cross-platform-install.mjs && ./pre-check.sh`
 6. **统一英文命名** — 主入口保留 `lang`；其他 Skill 的目录名、frontmatter `name` 和调用命令必须使用英文 `lang-*`
 
 设计与内部增强的联动规则见 [docs/DESIGN.md](docs/DESIGN.md)。
