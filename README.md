@@ -47,6 +47,7 @@ npx skills remove -g
 | `/lang-knowledge-system` | 数字大脑 | 从业务地图、信息流和协作边界设计知识系统 |
 | `/lang-consulting-retro` | 咨询复盘 | 用证据还原咨询转折并沉淀可验证的经验 |
 | `/lang-enterprise-ai-diagnosis` | **狼格拉底企业 AI 提效诊断** | 先选择整体扫描、具体业务问题或已有 AI 想法，再理清生意、职责和复合目标，比较值得先看的工作系统并形成最小验证 |
+| `/lang-sales-master` | **销售大宗师** | 面向大客户、复杂销售和长周期跟进，基于客户原话与行动判断阶段、成交窗口、风险和下一步 |
 | `/lang-poster` | 可编辑海报 | 生成 HTML 海报并导出、检查高清 JPG |
 | `/lang-wutai-dialogue` | 五台山论道 | 根据话题推荐跨时代、跨流派思想家，模拟多角色对话与交锋 |
 | `/lang-research` | 溯源研究 | 自动编排理论根脉、历史演变、当前结构与交汇判断 |
