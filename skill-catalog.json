@@ -12,6 +12,7 @@
     {"id": "lang-knowledge-system", "path": "skills/lang-knowledge-system", "role": "public-core"},
     {"id": "lang-consulting-retro", "path": "skills/lang-consulting-retro", "role": "public-core"},
     {"id": "lang-enterprise-ai-diagnosis", "path": "skills/lang-enterprise-ai-diagnosis", "role": "public-product"},
+    {"id": "lang-business-diagnosis", "path": "skills/lang-business-diagnosis", "role": "public-product"},
     {"id": "lang-poster", "path": "skills/lang-poster", "role": "public-core"},
     {"id": "lang-wutai-dialogue", "path": "skills/lang-wutai-dialogue", "role": "public-product"},
     {"id": "lang-research", "path": "skills/lang-research", "role": "public-product"},
