@@ -47,6 +47,18 @@
         "保留 Codex/Claude Code 的共享入口结构"
       ],
       "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "我想先搭一个最简单的概念库和判断库，以后把聊天截图和录音里的东西沉淀进去。我现在用 Excel。",
+      "expected_output": "直接路由到 /lang-knowledge-extraction，由它完成 starter 初始化、载体选择与后续素材沉淀；不路由到数字大脑的完整目录设计，也不要求用户先搭四库。",
+      "expectations": [
+        "路由到 lang-knowledge-extraction",
+        "不路由到 lang-knowledge-system",
+        "保留概念库和判断库的 starter 意图",
+        "不在 lang 主入口直接执行初始化"
+      ],
+      "files": []
     }
   ]
 }

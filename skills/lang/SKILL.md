@@ -1,10 +1,6 @@
 ---
 name: lang
-description: |
-  狼格拉底的ASOP主入口。根据你的问题自动路由到最合适的诊断工具。
-  触发方式：/lang、/狼格拉底、「帮我诊断」「我想AI化」「帮我看看」
-  Main entry point for langgeladi ASOP. Auto-routes to the best diagnostic tool.
-  Trigger: /lang, /langgeladi, "help me diagnose", "I want to AI-ify my business"
+description: "用户调用 lang 或需选择狼格拉底 ASOP 工具时，路由到对应技能。"
 ---
 
 # lang — 狼格拉底的ASOP
@@ -61,6 +57,7 @@ description: |
 | 检查论证、逐步推理、「这个逻辑通不通」「这里为什么能推出那里」 | `/lang-logic-tracing` |
 | 整理录音、筛选转写洞察、深挖某条录音候选 | `/lang-recording-insight` |
 | 搭第二大脑、知识库规划、文件体系复诊 | `/lang-knowledge-system` |
+| 初始化概念库／判断库、把聊天截图／录音／文档沉淀为知识、配置飞书／钉钉／企微／Excel／数据库载体 | `/lang-knowledge-extraction` |
 | 咨询复盘、客户沟通复盘、准备下一场咨询 | `/lang-consulting-retro` |
 | 制作海报、课程封面、观点视觉卡片 | `/lang-poster` |
 | 「升级」「更新」 | `/lang-upgrade` |

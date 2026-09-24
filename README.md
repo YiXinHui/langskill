@@ -51,6 +51,7 @@ npx skills remove -g
 | `/lang-logic-tracing` | 逻辑卡点梳理 | 逐步审计论证，修补跳跃、隐含假设和结论过强 |
 | `/lang-recording-insight` | 录音洞察 | 从转写中筛选高价值候选，用户选择后再深挖 |
 | `/lang-knowledge-system` | 数字大脑 | 从业务地图、信息流和协作边界设计知识系统 |
+| `/lang-knowledge-extraction` | **归纳式经验萃取师** | 首次初始化概念库与判断库，再把聊天截图、录音和文档持续沉淀；按需扩展案例与金句 |
 | `/lang-consulting-retro` | 咨询复盘 | 用证据还原咨询转折并沉淀可验证的经验 |
 | `/lang-business-diagnosis` | **企业咨询式商业初诊** | 先识别整体扫描、具体业务问题或已有 AI 想法，再还原生意与业务证据，形成有边界的初诊结论和最小验证动作 |
 | `/lang-sales-master` | **销售大宗师** | 面向大客户、复杂销售和长周期跟进，基于客户原话与行动判断阶段、成交窗口、风险和下一步 |

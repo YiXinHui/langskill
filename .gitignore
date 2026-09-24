@@ -25,3 +25,9 @@ archive/*/evals/*
 !archive/*/evals/evals.json
 !archive/*/evals/run_static_checks.py
 !archive/*/evals/*_smoke-results.md
+
+# Node 依赖
+node_modules/
+
+# 构建产物
+dist/

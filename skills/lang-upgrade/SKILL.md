@@ -1,6 +1,6 @@
 ---
 name: lang-upgrade
-description: 升级或修复 LangSkill 的全局安装，并把旧 Claude 单端安装、分散软链接和重复 Codex 入口收敛到 Codex、Claude Code 与 WorkBuddy/CodeBuddy 的可发现结构。用户说“升级 langskill”“修复 langskill 安装”“让 Codex、Claude Code 和 WorkBuddy 都能调用”，或在 lang 启动检查后明确同意升级时使用。
+description: "升级或修复 LangSkill 安装及各 Agent 的发现入口。"
 ---
 
 # lang-upgrade

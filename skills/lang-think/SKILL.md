@@ -1,10 +1,6 @@
 ---
 name: lang-think
-description: |
-  狼哥盘认知。三种模式：推理（想法→根→系统）、推倒（错误认知→翻转→真相）、校准（决策/诱惑/纠结→用你的价值观+结构后果→精确对错）。
-  触发方式：/lang-think、「我有个想法」「我觉得XX是因为YY」「帮我想清楚」「这个观点对不对」「我该不该做XX」「选A还是B」「我在纠结要不要XX」「我怕走上XX那条路」
-  Langgeladi cognition check. Three modes: Trace (idea → first principles → system), Topple (wrong belief → flip → truth), Calibrate (decision/temptation → your values + structural consequences → precise right-and-wrong).
-  Trigger: /lang-think, "I have an idea", "help me think this through", "is this right", "should I do X", "A or B"
+description: "通过推理、推倒或价值观校准，梳理用户的认知判断与决策纠结。"
 ---
 
 # lang-think — 狼哥盘认知

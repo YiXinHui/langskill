@@ -1,6 +1,6 @@
 ---
 name: lang-skill-iteration
-description: 从用户对 AI 产物的真实修改、纠正、采用结果和反馈中提取可迁移规律，并把它们准确落到 Skill、references、配置、evals 或项目复盘。用户说“我改完了，分析为什么”“根据最终稿学习”“迭代相关 Skill”“以后别再犯”“复盘 AI 初稿和最终版本”时使用。适用于文稿、方案、报告、表格、流程、代码和对外交付；普通一次性改字且没有学习或沉淀意图时不触发。
+description: "根据用户真实修改和采用反馈，迭代 Skill、配置或回归案例。"
 ---
 
 # Skill Iteration
