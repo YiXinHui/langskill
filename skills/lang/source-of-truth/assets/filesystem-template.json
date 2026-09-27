@@ -1,0 +1,28 @@
+{
+  "main_company": "主营业务",
+  "secondary_company": "第二业务",
+  "personal_brand": "个人品牌",
+  "public_account": "公众号",
+  "projects_root": "~/Projects",
+  "extra_directories": {
+    "knowledge": {
+      "08-他山之石/爆款文稿库": "文稿原件参考，使用时核对作者、原文和来源"
+    },
+    "main": {
+      "01-产品/产品A": "通用产品目录示例，可按自己的产品改名或移除",
+      "01-产品/产品B": "通用产品目录示例，可按自己的产品改名或移除",
+      "03-内容/公众号/主号": "主要公众号内容",
+      "03-内容/公众号/副号": "其他公众号内容，可按需改名或移除"
+    }
+  },
+  "authorities": {
+    "knowledge": null,
+    "goals": null,
+    "company_knowledge": null,
+    "customers": null,
+    "customer_events": null,
+    "customer_materials": null,
+    "products": null,
+    "hr": null
+  }
+}
