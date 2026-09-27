@@ -1,0 +1,18 @@
+{
+  "main_company": "主营业务",
+  "secondary_company": "第二业务",
+  "personal_brand": "个人品牌",
+  "public_account": "公众号",
+  "projects_root": "~/Projects",
+  "extra_directories": {},
+  "authorities": {
+    "knowledge": null,
+    "goals": null,
+    "company_knowledge": null,
+    "customers": null,
+    "customer_events": null,
+    "customer_materials": null,
+    "products": null,
+    "hr": null
+  }
+}

@@ -59,6 +59,28 @@
         "不在 lang 主入口直接执行初始化"
       ],
       "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "我用 /lang，想按公司版模板给新公司搭一套 Source of Truth 文件目录。",
+      "expected_output": "直接进入 lang 本体内的 source-of-truth 公司版模块，核对目标位置与配置，再预检、创建和验收；不路由到独立 source-of-truth Skill 或数字大脑复诊。",
+      "expectations": [
+        "读取 lang/source-of-truth/README.md 和公司版方法",
+        "使用内部 init_company.py 的预检与验收",
+        "不依赖独立安装的 source-of-truth Skill"
+      ],
+      "files": []
+    },
+    {
+      "id": 7,
+      "prompt": "我用 /lang，已经有一套知识目录，想复诊信息流和协作规则。",
+      "expected_output": "路由到 /lang-knowledge-system 做现状复诊，不运行文件体系初始化脚本。",
+      "expectations": [
+        "识别已有系统复诊意图",
+        "路由 lang-knowledge-system",
+        "不新建 Source of Truth 模板目录"
+      ],
+      "files": []
     }
   ]
 }

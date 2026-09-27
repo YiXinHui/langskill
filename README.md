@@ -44,7 +44,7 @@ npx skills remove -g
 
 | 命令 | 工具 | 说明 |
 |------|------|------|
-| `/lang` | **路由入口** | 自动分发到最合适的诊断工具 |
+| `/lang` | **ASOP 入口** | 路由诊断工具；直接执行个人或公司 Source of Truth 文件体系初始化 |
 | `/lang-think` | 狼哥盘认知 | 推理（想法→底层→系统）和推倒（错误认知→翻转→真相） |
 | `/lang-upgrade` | 升级 | 升级 langskill 到最新版本 |
 | `/lang-skill-iteration` | Skill 反馈迭代 | 从用户真实修改中提取规律并准确迭代 Skill、配置和测试 |

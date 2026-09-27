@@ -37,6 +37,12 @@ try {
   const codeBuddyLangVersion = (await fs.readFile(path.join(codeBuddyRoot, "lang", "VERSION"), "utf8")).trim();
   assert(installedLangVersion === packageVersion, "installed lang version marker differs from package VERSION");
   assert(codeBuddyLangVersion === packageVersion, "CodeBuddy lang version marker differs from package VERSION");
+  for (const installedRoot of [canonicalRoot, codeBuddyRoot]) {
+    const moduleRoot = path.join(installedRoot, "lang", "source-of-truth");
+    for (const relative of ["README.md", "scripts/init_sot.py", "scripts/init_company.py", "assets/company-template.json"]) {
+      await fs.access(path.join(moduleRoot, relative));
+    }
+  }
 
   for (const id of expectedIds) {
     await fs.access(path.join(canonicalRoot, id, "SKILL.md"));
