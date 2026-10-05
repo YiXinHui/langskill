@@ -32,6 +32,8 @@ npx skills add YiXinHui/langskill -g -a codebuddy -s '*' -y
 
 安装后每次触发 `/lang` 都会只读检查公开仓的 `VERSION`。发现远端版本领先时，`lang` 会先询问是否升级；只有回复同意后才转入 `/lang-upgrade`，网络失败或版本无法判断不会阻断正常使用。
 
+从 v0.21.0 及更早版本升级时请运行 `/lang-upgrade`。v0.22.0 退役了依赖私人框架的 `lang-wechat-pyq`；仅重新执行安装命令可能保留旧入口，升级流程会备份并核对来源后清理。
+
 ## 卸载
 
 ```bash
@@ -58,7 +60,6 @@ npx skills remove -g
 | `/lang-poster` | 可编辑海报 | 生成 HTML 海报并导出、检查高清 JPG |
 | `/lang-wutai-dialogue` | 五台山论道 | 根据话题推荐跨时代、跨流派思想家，模拟多角色对话与交锋 |
 | `/lang-research` | 溯源研究 | 自动编排理论根脉、历史演变、当前结构与交汇判断 |
-| `/lang-wechat-pyq` | 狼格拉底朋友圈 | 规划每日朋友圈内容、文案与配图 |
 | `/lang-wechat-writing` | 通用朋友圈写作 | 基于 1—3 份真实来源生成一条可追溯草稿 |
 | `/lang-dida` | 滴答清单 | 使用官方 DIDA CLI 查询和管理国内滴答任务、清单、习惯、专注及复盘证据 |
 | `/lang-goals` | 个人目标管理 | 在飞书多维表格里管理年、月、周、日目标和日／周／月复盘，按 333 控制每期重点 |

@@ -28,12 +28,12 @@
     },
     {
       "id": 3,
-      "prompt": "检查并升级 langskill。现在 14 个 Skill 已经全部从 ~/.agents/skills 共享，Claude Code 软链正常，Codex 没有重复入口，而且远端版本没有变化。",
+      "prompt": "检查并升级 langskill。当前公开清单中的 Skill 已经全部从 ~/.agents/skills 共享，Claude Code 软链正常，Codex 没有重复入口，退役入口均不可见，而且远端版本没有变化。",
       "expected_output": "验证清单、三端发现和单一入口后报告已是最新状态，不重装、不删除入口，也不创建 Desktop 或 ~/.codex 重复映射。",
       "expectations": [
         "核对 skill-catalog 中的完整清单",
         "确认 Codex、Claude Code 和 CodeBuddy 各只有一个可发现入口",
-        "版本未变化时不执行重装",
+        "版本未变化且退役入口已清理时不执行重装",
         "不创建工作区级重复入口",
         "不把三种 agent 合并成会漏掉 CodeBuddy 的单条安装命令"
       ],
@@ -48,6 +48,18 @@
         "目标目录为 ~/.codebuddy/skills/",
         "安装命令不与 Codex/Claude Code 合并",
         "包含 CodeBuddy 专属发现验证"
+      ],
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "把 LangSkill 从 v0.18.0 升到最新版。旧的 lang-wechat-pyq 仍在共享目录、Claude Code 软链和 CodeBuddy 安装目录里。",
+      "expected_output": "读取改名表中的退役标记，先备份并确认这些入口属于旧 LangSkill 安装，再清理三个平台的精确旧入口；来源不同或有独立内容时保留并报告冲突。升级后验证旧入口不再可见。",
+      "expectations": [
+        "退役入口在删除前已备份",
+        "只处理改名表明确列出的旧名称",
+        "不删除来源不明或内容不同的同名目录",
+        "Codex、Claude Code 和 CodeBuddy 都不再发现退役 Skill"
       ],
       "files": []
     }

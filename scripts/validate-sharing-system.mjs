@@ -64,7 +64,11 @@ async function main() {
   } else {
     for (const [oldName, newName] of Object.entries(renames.renames)) {
       if (actual.includes(oldName)) fail(`legacy skill directory still exists: ${oldName}`);
-      if (!entries.has(newName)) fail(`rename target is not a current skill: ${oldName} -> ${newName}`);
+      if (newName === null) {
+        if (entries.has(oldName)) fail(`retired skill is still in catalog: ${oldName}`);
+      } else if (!entries.has(newName)) {
+        fail(`rename target is not a current skill: ${oldName} -> ${newName}`);
+      }
     }
   }
 
