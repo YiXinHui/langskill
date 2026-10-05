@@ -65,6 +65,7 @@ description: "用户调用 lang 时路由狼格拉底 ASOP 工具；新建个人
 | 咨询复盘、客户沟通复盘、准备下一场咨询 | `/lang-consulting-retro` |
 | 制作海报、课程封面、观点视觉卡片 | `/lang-poster` |
 | 查询或管理国内滴答清单、读取待办和复盘任务记录 | `/lang-dida` |
+| 做本月目标、安排这周、今天做什么、收口或月末复盘 | `/lang-goals` |
 | 「升级」「更新」 | `/lang-upgrade` |
 
 路由规则：
