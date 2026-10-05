@@ -64,6 +64,7 @@ description: "用户调用 lang 时路由狼格拉底 ASOP 工具；新建个人
 | 初始化概念库／判断库、把聊天截图／录音／文档沉淀为知识、配置飞书／钉钉／企微／Excel／数据库载体 | `/lang-knowledge-extraction` |
 | 咨询复盘、客户沟通复盘、准备下一场咨询 | `/lang-consulting-retro` |
 | 制作海报、课程封面、观点视觉卡片 | `/lang-poster` |
+| 查询或管理国内滴答清单、读取待办和复盘任务记录 | `/lang-dida` |
 | 「升级」「更新」 | `/lang-upgrade` |
 
 路由规则：
