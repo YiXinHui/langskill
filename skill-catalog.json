@@ -17,7 +17,6 @@
     {"id": "lang-sales-master", "path": "skills/lang-sales-master", "role": "public-product"},
     {"id": "lang-wutai-dialogue", "path": "skills/lang-wutai-dialogue", "role": "public-product"},
     {"id": "lang-research", "path": "skills/lang-research", "role": "public-product"},
-    {"id": "lang-wechat-pyq", "path": "skills/lang-wechat-pyq", "role": "public-product"},
     {"id": "lang-wechat-writing", "path": "skills/lang-wechat-writing", "role": "public-core"},
     {"id": "lang-dida", "path": "skills/lang-dida", "role": "public-core"},
     {"id": "lang-goals", "path": "skills/lang-goals", "role": "public-core"}

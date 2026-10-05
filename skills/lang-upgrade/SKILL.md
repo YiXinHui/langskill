@@ -29,7 +29,7 @@ Codex 已直接扫描 `~/.agents/skills/`，腾讯 WorkBuddy / CodeBuddy 使用 
 从公开仓读取：
 
 - `skill-catalog.json`
-- `skill-renames.json`
+- `skill-renames.json`（字符串目标表示改名，`null` 表示退役）
 - `VERSION`
 
 网络不可用或任一文件解析失败时停止，不改变本地安装。下载内容放在 `mktemp -d` 创建的临时目录，不放进 Skill 发现根。
@@ -55,6 +55,7 @@ Codex 已直接扫描 `~/.agents/skills/`，腾讯 WorkBuddy / CodeBuddy 使用 
 - 工作树干净且位于 `main` 时，才执行 `git pull --ff-only`。
 - 拉取后运行仓内 `node scripts/validate-sharing-system.mjs`、`node scripts/test-cross-platform-install.mjs` 和 `./pre-check.sh`。
 - 按最新 `skill-catalog.json` 补齐 `~/.agents/skills/` 与 `~/.claude/skills/` 入口；新增入口指向同一开发仓，不复制正文。
+- 对改名表中标为 `null` 的退役入口，先核对是否为指向本开发仓旧目录的软链接；确认后移除共享入口和对应 Agent 链接。独立目录或目标不明的链接保留并报告冲突。
 
 任一验证失败都保留工作树和现有映射，报告失败，不宣布升级完成。
 
@@ -66,7 +67,7 @@ Codex 已直接扫描 `~/.agents/skills/`，腾讯 WorkBuddy / CodeBuddy 使用 
 ~/.agents/backups/langskill-YYYYMMDD-HHMMSS/
 ```
 
-备份清单、解析后的真实目标和 `~/.agents/.langskill-version`。只处理公开仓清单与改名表声明的名称，不使用 `lang*` 通配符删除其他内容。
+备份清单、解析后的真实目标和 `~/.agents/.langskill-version`。改名表中 `null` 的退役入口也须先备份；只处理公开仓清单与改名表声明的名称，不使用 `lang*` 通配符删除其他内容。
 
 ### 5. 通过统一安装器收敛
 
@@ -84,13 +85,13 @@ npx skills add YiXinHui/langskill -g -a codebuddy -s '*' -y
 
 安装成功后：
 
-1. 按 `skill-renames.json` 处理旧名称；只删除清单声明的旧入口。
+1. 按 `skill-renames.json` 处理旧名称：字符串目标改名，`null` 退役。仅在入口确认为本仓旧安装且已备份时移除旧入口；独立内容不同或来源不明时保留并报告冲突。
 2. 如果 `~/.codex/skills/<name>` 是指向同一共享正文的软链接，移除这个重复入口。
 3. 如果 `~/.codex/skills/<name>` 是独立目录或指向其他内容，保留并报告冲突。
 4. 确认 `~/.codebuddy/skills/<name>` 已由第二条安装命令更新。
 5. 把远端版本写入 `~/.agents/.langskill-version`。
 
-如果本地版本与远端一致，但清单不完整、三端不可见或存在重复入口，仍需执行收敛；只有“版本一致 + 结构正确 + 验证通过”才能直接结束。
+如果本地版本与远端一致，但清单不完整、三端不可见、退役入口仍可见或存在重复入口，仍需执行收敛；只有“版本一致 + 结构正确 + 验证通过”才能直接结束。
 
 ### 6. 验证
 
@@ -104,6 +105,7 @@ npx skills add YiXinHui/langskill -g -a codebuddy -s '*' -y
 6. `npx skills list -g -a claude-code --json` 包含完整清单。
 7. `npx skills list -g -a codebuddy --json` 包含完整清单。
 8. 同一平台、同一 `name` 只出现一次。
+9. 改名表中标为 `null` 的退役入口在三个平台均不可见；来源不明的同名入口须列为冲突，不能报告收敛完成。
 
 全局 Skill 较多时，列表 JSON 可能超过终端输出上限。先写入 `mktemp -d` 下的临时文件，再用 `jq` 按 `skill-catalog.json` 过滤；验证后删除临时目录，不把测试文件放进 `~/.agents/skills/`。
 
