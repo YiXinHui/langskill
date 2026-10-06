@@ -325,6 +325,12 @@ class RuleConsistency(unittest.TestCase):
         hits = [n for n in self.FILES + ["references/dida-push.md"] if re.search("月成果|周结果", self.text(n))]
         self.assertEqual(hits, [])
 
+    def test_insert_triage_is_the_entry_for_mid_period_additions(self):
+        # 2026-10-06 original failure: a new idea was pushed to next week without judging it.
+        self.assertIn("## 插入判断", self.text("references/planning.md"))
+        self.assertIn("插入判断", self.text("SKILL.md"))
+        self.assertIn("切一小块本期做", self.text("references/planning.md"))
+
     def test_history_mentions_still_allowed(self):
         # Counter-example: saying the old routes were cancelled is fine and must not trip the checks.
         self.assertIn("已取消", self.text("SKILL.md"))
