@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Regressions for the 333 validator and a privacy scan of the public skill files."""
 import importlib.util
+import io
+import json
 from pathlib import Path
 import re
 import unittest
@@ -9,6 +11,9 @@ ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("validate_plan", ROOT / "scripts/validate_plan.py")
 vp = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(vp)
+dspec = importlib.util.spec_from_file_location("dida_sync", ROOT / "scripts/dida_sync.py")
+ds = importlib.util.module_from_spec(dspec)
+dspec.loader.exec_module(ds)
 
 
 def item(title, **extra):
@@ -79,9 +84,197 @@ class PlanChecks(unittest.TestCase):
         self.assertIn("duplicate titles in this period", vp.validate(plan))
 
 
+class FakeDida:
+    """In-memory stand-in for the dida CLI; records every write."""
+
+    def __init__(self):
+        self.tasks, self.deleted, self.writes, self.next_id = {}, set(), [], 1
+        self.unindexed = set()  # created in this run: real search lags behind writes
+
+    def add(self, project, title, due_utc, status=0, completed=None):
+        tid = f"t{self.next_id}"
+        self.next_id += 1
+        self.tasks[tid] = {"id": tid, "projectId": project, "title": title, "dueDate": due_utc,
+                           "timeZone": "Asia/Shanghai", "priority": 0, "status": status, "completedTime": completed}
+        return tid
+
+    def opt(self, args, name):
+        return args[args.index(name) + 1] if name in args else None
+
+    def apply(self, task, args):
+        if "--title" in args:
+            task["title"] = self.opt(args, "--title")
+        if "--due-date" in args:
+            local = ds.dt.datetime.strptime(self.opt(args, "--due-date"), "%Y-%m-%dT%H:%M:%S%z")
+            task["dueDate"] = local.astimezone(ds.dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000+0000")
+        if "--priority" in args:
+            task["priority"] = int(self.opt(args, "--priority"))
+        if "--items" in args:
+            task["items"] = json.loads(self.opt(args, "--items"))
+
+    def __call__(self, args):
+        args = [a for a in args if a != "--json"]
+        kind = args[1]
+        if kind == "get":
+            task = self.tasks.get(args[3])
+            if not task or task["projectId"] != args[2]:
+                raise ds.CliError("DIDA API 错误 404: task not found")
+            return json.dumps(task)
+        if kind == "search":
+            hits = [t for i, t in self.tasks.items() if args[2] in t["title"]
+                    and i not in self.deleted | self.unindexed]
+            return json.dumps(hits)
+        if kind == "filter":
+            low, high = (ds.dt.datetime.strptime(self.opt(args, n), "%Y-%m-%dT%H:%M:%S%z") for n in ("--start-date", "--end-date"))
+            def due(t):
+                return ds.dt.datetime.strptime(t["dueDate"], "%Y-%m-%dT%H:%M:%S.000%z") if t["dueDate"] else None
+            hits = [t for i, t in self.tasks.items() if i not in self.deleted and t["projectId"] == self.opt(args, "--projects")
+                    and due(t) and low <= due(t) <= high]
+            return json.dumps(hits)
+        self.writes.append(kind)
+        if kind == "create":
+            tid = self.add(self.opt(args, "--project"), "", None)
+            self.unindexed.add(tid)
+            self.apply(self.tasks[tid], args)
+            parent = self.opt(args, "--parent-id")
+            if parent:
+                self.tasks[tid]["parentId"] = parent
+                self.tasks[parent].setdefault("childIds", []).append(tid)
+            return json.dumps(self.tasks[tid])
+        if kind == "move":
+            self.tasks[self.opt(args, "--task")]["projectId"] = self.opt(args, "--to")
+            return "{}"
+        if kind == "update":
+            self.apply(self.tasks[args[2]], args)
+            return "{}"
+        raise AssertionError(f"unexpected write: {args}")
+
+
+def sync(fake, mode, items):
+    out = io.StringIO()
+    payload = io.StringIO(json.dumps({"project_id": "inbox-x", "time_zone": "Asia/Shanghai", "items": items}))
+    real_stdout, ds.sys.stdout = ds.sys.stdout, out
+    try:
+        code = ds.main(["dida_sync.py", mode], stdin=payload, runner=fake)
+    finally:
+        ds.sys.stdout = real_stdout
+    return code, json.loads(out.getvalue())
+
+
+def todo(**extra):
+    base = {"record_id": "rec1", "title": "写完提纲", "date": "2026-10-06", "priority": 0, "content": "来源"}
+    base.update(extra)
+    return base
+
+
+class DidaPush(unittest.TestCase):
+    def test_new_todo_is_created_and_read_back(self):
+        fake = FakeDida()
+        code, res = sync(fake, "push", [todo(priority=5)])
+        self.assertEqual((code, res[0]["result"]), (0, "created"))
+        task = fake.tasks[res[0]["dida_task_id"]]
+        self.assertEqual((task["dueDate"], task["priority"]), ("2026-10-05T16:00:00.000+0000", 5))
+
+    def test_second_push_without_backfilled_id_does_not_duplicate(self):
+        # Original failure (2026-10-06 live run): search lagged, the retry created a duplicate.
+        fake = FakeDida()
+        sync(fake, "push", [todo()])
+        code, res = sync(fake, "push", [todo()])
+        self.assertEqual((code, res[0]["result"], fake.writes), (0, "matched", ["create"]))
+
+    def test_same_title_other_day_is_still_created(self):
+        # Counter-example: a repeat of the same todo on a new day is a new task.
+        fake = FakeDida()
+        fake.add("inbox-x", "写完提纲", "2026-10-04T16:00:00.000+0000")
+        self.assertEqual(sync(fake, "push", [todo()])[1][0]["result"], "created")
+
+    def test_known_id_without_fields_never_overwrites_user_postpone(self):
+        fake = FakeDida()
+        tid = fake.add("inbox-x", "写完提纲", "2026-10-07T16:00:00.000+0000")
+        code, res = sync(fake, "push", [todo(dida_task_id=tid)])
+        self.assertEqual((res[0]["result"], fake.writes), ("exists", []))
+        self.assertEqual(fake.tasks[tid]["dueDate"], "2026-10-07T16:00:00.000+0000")
+
+    def test_confirmed_title_change_updates_same_task(self):
+        fake = FakeDida()
+        tid = fake.add("inbox-x", "写完提纲", "2026-10-05T16:00:00.000+0000")
+        code, res = sync(fake, "push", [todo(title="写完提纲第一章", dida_task_id=tid, fields=["title"])])
+        self.assertEqual((code, res[0]["result"], fake.tasks[tid]["title"]), (0, "updated", "写完提纲第一章"))
+
+    def test_deleted_task_is_reported_not_recreated(self):
+        fake = FakeDida()
+        tid = fake.add("inbox-x", "写完提纲", "2026-10-05T16:00:00.000+0000")
+        fake.deleted.add(tid)
+        res = sync(fake, "push", [todo(dida_task_id=tid, fields=["title"])])[1]
+        self.assertEqual((res[0]["result"], fake.writes), ("deleted", []))
+
+
+class DidaTargets(unittest.TestCase):
+    """2026-10-06: push to each todo's own list, 🐸 in the title, subtasks at most 3 per level."""
+
+    def test_inbox_task_is_moved_retitled_and_split(self):
+        # Original failure: first batch went to the inbox with no subtasks and no 🐸.
+        fake = FakeDida()
+        tid = fake.add("inbox-x", "写完提纲", "2026-10-05T16:00:00.000+0000")
+        fake.unindexed.clear()
+        item = todo(title="🐸写完提纲", old_title="写完提纲", dida_task_id=tid, project_id="写作", priority=5,
+                    subtasks=[{"title": "列章节"}, {"title": "写二级标题"}, {"title": "写核心论点"}],
+                    fields=["project", "title", "priority", "subtasks"])
+        code, res = sync(fake, "push", [item])
+        task = fake.tasks[tid]
+        self.assertEqual((code, res[0]["result"]), (0, "updated"))
+        self.assertEqual((task["projectId"], task["title"], len(task["items"])), ("写作", "🐸写完提纲", 3))
+        self.assertNotIn("create", fake.writes)
+
+    def test_new_todo_goes_to_its_own_list(self):
+        fake = FakeDida()
+        res = sync(fake, "push", [todo(project_id="人脉管理")])[1]
+        self.assertEqual(fake.tasks[res[0]["dida_task_id"]]["projectId"], "人脉管理")
+
+    def test_nested_subtasks_become_child_tasks(self):
+        fake = FakeDida()
+        subs = [{"title": "甲", "subtasks": [{"title": "甲1"}, {"title": "甲2"}]}, {"title": "乙"}]
+        code, res = sync(fake, "push", [todo(subtasks=subs)])
+        parent = fake.tasks[res[0]["dida_task_id"]]
+        kids = [fake.tasks[c] for c in parent["childIds"]]
+        self.assertEqual((code, [k["title"] for k in kids], len(kids[0]["items"])), (0, ["甲", "乙"], 2))
+
+    def test_fourth_subtask_is_rejected_before_any_write(self):
+        fake = FakeDida()
+        code, res = sync(fake, "push", [todo(subtasks=[{"title": t} for t in "甲乙丙丁"])])
+        self.assertEqual((code, res[0]["result"], fake.writes), (1, "error", []))
+
+    def test_existing_checklist_is_not_overwritten(self):
+        # Counter-example: the user may already have ticked items in DIDA.
+        fake = FakeDida()
+        tid = fake.add("inbox-x", "写完提纲", "2026-10-05T16:00:00.000+0000")
+        fake.tasks[tid]["items"] = [{"title": "已勾", "status": 1}]
+        res = sync(fake, "push", [todo(dida_task_id=tid, subtasks=[{"title": "新"}], fields=["subtasks"])])[1]
+        self.assertEqual((res[0]["result"], fake.tasks[tid]["items"][0]["title"]), ("updated", "已勾"))
+        self.assertIn("notes", res[0])
+
+
+class DidaRead(unittest.TestCase):
+    def test_completed_postponed_moved_and_missing(self):
+        fake = FakeDida()
+        done = fake.add("inbox-x", "甲", "2026-10-05T16:00:00.000+0000", status=2,
+                        completed="2026-10-06T04:33:13.370+0000")
+        later = fake.add("inbox-x", "乙", "2026-10-07T16:00:00.000+0000")
+        moved = fake.add("other", "丙", "2026-10-05T16:00:00.000+0000")
+        items = [todo(record_id="r1", title="甲", dida_task_id=done), todo(record_id="r2", title="乙", dida_task_id=later),
+                 todo(record_id="r3", title="丙", dida_task_id=moved), todo(record_id="r4", title="丁", dida_task_id="gone")]
+        code, res = sync(fake, "read", items)
+        by_id = {r["record_id"]: r for r in res}
+        self.assertEqual((by_id["r1"]["status_text"], by_id["r1"]["completed_date"]), ("已完成", "2026-10-06"))
+        self.assertEqual((by_id["r2"]["date_changed"], by_id["r2"]["due_date"]), (True, "2026-10-08"))
+        self.assertEqual((by_id["r3"]["moved"], by_id["r3"]["project_id"]), (True, "other"))
+        self.assertFalse(by_id["r4"]["found"])
+        self.assertEqual(fake.writes, [])
+
+
 class PrivacyScan(unittest.TestCase):
     """Public files must not carry personal resource coordinates."""
-    PATTERNS = [r"feishu\.cn/(base|docx|drive|wiki)/", r"\btbl[A-Za-z0-9]{12,}", r"\b[A-Za-z0-9]{27}\b", r"\bou_[a-z0-9]{20,}"]
+    PATTERNS = [r"feishu\.cn/(base|docx|drive|wiki)/", r"\btbl[A-Za-z0-9]{12,}", r"\b[A-Za-z0-9]{27}\b", r"\bou_[a-z0-9]{20,}", r"\binbox\d{6,}"]
 
     def test_no_personal_tokens_outside_private_config(self):
         hits = []
@@ -116,6 +309,21 @@ class RuleConsistency(unittest.TestCase):
         skill = self.text("SKILL.md")
         self.assertNotRegex(skill, r"v1\.1\s*使用\s*BaseApp")
         self.assertNotIn("刷新九宫格", skill)
+
+    def test_planning_does_not_revive_cancelled_board(self):
+        # Original failure: planning.md still said the BaseApp board was "未被用户取消" after D11.
+        self.assertNotIn("未被用户取消", self.text("references/planning.md"))
+
+    def test_dida_is_no_longer_read_only_in_entry(self):
+        # 2026-10-06: daily todos are pushed after confirmation; status stays read-only.
+        skill = self.text("SKILL.md")
+        self.assertNotIn("待办工具只读取证", skill)
+        self.assertIn("references/dida-push.md", skill)
+
+    def test_old_field_names_are_gone(self):
+        # 2026-10-06: fields renamed to 月目标／周目标 at the user's request.
+        hits = [n for n in self.FILES + ["references/dida-push.md"] if re.search("月成果|周结果", self.text(n))]
+        self.assertEqual(hits, [])
 
     def test_history_mentions_still_allowed(self):
         # Counter-example: saying the old routes were cancelled is fine and must not trip the checks.
