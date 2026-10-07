@@ -16,6 +16,12 @@ ds = importlib.util.module_from_spec(dspec)
 dspec.loader.exec_module(ds)
 
 
+def day(title, **extra):
+    base = {"title": title, "parent": "rec-week", "parent_type": "周计划", "frog": False, "dida_list": "写作"}
+    base.update(extra)
+    return {k: v for k, v in base.items() if v is not None}
+
+
 def item(title, **extra):
     base = {"title": title, "parent": "rec-synthetic-parent", "done_when": "可检查的结果", "dimension": "工作事业"}
     base.update(extra)
@@ -70,17 +76,35 @@ class PlanChecks(unittest.TestCase):
         self.assertTrue(any("actual_result" in e for e in vp.validate(plan)))
 
     def test_day_needs_parent_not_done_when(self):
-        ok = {"level": "day", "period": "2026-10-07", "items": [{"title": "写完提纲", "parent": "rec-week"}]}
+        ok = {"level": "day", "period": "2026-10-07", "items": [day("写完提纲")]}
         self.assertEqual(vp.validate(ok), [])
-        orphan = {"level": "day", "period": "2026-10-07", "items": [{"title": "写完提纲"}]}
+        orphan = {"level": "day", "period": "2026-10-07", "items": [day("写完提纲", parent=None)]}
         self.assertTrue(any("parent" in e for e in vp.validate(orphan)))
+
+    def test_day_todo_must_say_where_it_hangs(self):
+        # 2026-10-07 original failure: todos written with no weekly plan link at all.
+        bad = {"level": "day", "period": "2026-10-07", "items": [day("写完提纲", parent_type=None)]}
+        self.assertTrue(any("parent_type" in e for e in vp.validate(bad)))
+        one_off = {"level": "day", "period": "2026-10-07", "items": [day("约人见面", parent_type="月目标")]}
+        self.assertEqual(vp.validate(one_off), [])
+
+    def test_frog_chain_needs_frog_title(self):
+        # 2026-10-07 original failure: a todo under the 🐸 writing plan was titled without 🐸.
+        bad = {"level": "day", "period": "2026-10-07", "items": [day("公众号日更一篇", frog=True)]}
+        self.assertTrue(any("must start with 🐸" in e for e in vp.validate(bad)))
+        wrong = {"level": "day", "period": "2026-10-07", "items": [day("🐸约人见面", frog=False)]}
+        self.assertTrue(any("not a 🐸 goal" in e for e in vp.validate(wrong)))
+
+    def test_day_todo_needs_dida_list(self):
+        bad = {"level": "day", "period": "2026-10-07", "items": [day("写完提纲", dida_list="")]}
+        self.assertTrue(any("dida_list" in e for e in vp.validate(bad)))
 
     def test_old_status_rejected(self):
         plan = {"level": "week", "period": "2026-10-05", "items": [item("甲", status="待核")]}
         self.assertTrue(any("status" in e for e in vp.validate(plan)))
 
     def test_duplicate_titles(self):
-        plan = {"level": "day", "period": "2026-10-07", "items": [{"title": "甲", "parent": "r"}, {"title": "甲", "parent": "r"}]}
+        plan = {"level": "day", "period": "2026-10-07", "items": [day("甲"), day("甲")]}
         self.assertIn("duplicate titles in this period", vp.validate(plan))
 
 
@@ -124,6 +148,8 @@ class FakeDida:
             hits = [t for i, t in self.tasks.items() if args[2] in t["title"]
                     and i not in self.deleted | self.unindexed]
             return json.dumps(hits)
+        if args[0] == "project" and kind == "data":
+            return json.dumps({"tasks": [t for i, t in self.tasks.items() if t["projectId"] == args[2] and i not in self.deleted]})
         if kind == "filter":
             low, high = (ds.dt.datetime.strptime(self.opt(args, n), "%Y-%m-%dT%H:%M:%S%z") for n in ("--start-date", "--end-date"))
             def due(t):
@@ -254,6 +280,30 @@ class DidaTargets(unittest.TestCase):
         self.assertIn("notes", res[0])
 
 
+class DidaUntracked(unittest.TestCase):
+    def test_user_added_tasks_are_listed_and_plan_tasks_are_not(self):
+        # 2026-10-07: tasks the user adds straight into DIDA (e.g. 学seo) must be surfaced for triage.
+        fake = FakeDida()
+        planned = fake.add("写作", "🐸写提纲", "2026-10-06T16:00:00.000+0000")
+        mine = fake.add("写作", "学seo", "2026-10-05T16:00:00.000+0000")
+        done = fake.add("写作", "已经做完的", "2026-10-05T16:00:00.000+0000", status=2)
+        undated = fake.add("写作", "随手一记", None)
+        fake.tasks[undated]["createdTime"] = "2026-10-06T02:00:00.000+0000"
+        old = fake.add("写作", "很早以前的", None)
+        fake.tasks[old]["createdTime"] = "2026-09-01T02:00:00.000+0000"
+        payload = {"project_ids": ["写作"], "time_zone": "Asia/Shanghai", "from": "2026-10-05", "to": "2026-10-07",
+                   "known_ids": [planned]}
+        out = io.StringIO()
+        real, ds.sys.stdout = ds.sys.stdout, out
+        try:
+            code = ds.main(["dida_sync.py", "untracked"], stdin=io.StringIO(json.dumps(payload)), runner=fake)
+        finally:
+            ds.sys.stdout = real
+        titles = [t["title"] for t in json.loads(out.getvalue())]
+        self.assertEqual((code, sorted(titles)), (0, ["学seo", "随手一记"]))
+        self.assertEqual(fake.writes, [])
+
+
 class DidaRead(unittest.TestCase):
     def test_completed_postponed_moved_and_missing(self):
         fake = FakeDida()
@@ -321,8 +371,8 @@ class RuleConsistency(unittest.TestCase):
         self.assertIn("references/dida-push.md", skill)
 
     def test_old_field_names_are_gone(self):
-        # 2026-10-06: fields renamed to 月目标／周目标 at the user's request.
-        hits = [n for n in self.FILES + ["references/dida-push.md"] if re.search("月成果|周结果", self.text(n))]
+        # 2026-10-06: fields renamed to 月目标／周计划 at the user's request.
+        hits = [n for n in self.FILES + ["references/dida-push.md"] if re.search("月成果|周结果|周目标", self.text(n))]
         self.assertEqual(hits, [])
 
     def test_insert_triage_is_the_entry_for_mid_period_additions(self):
@@ -330,6 +380,12 @@ class RuleConsistency(unittest.TestCase):
         self.assertIn("## 插入判断", self.text("references/planning.md"))
         self.assertIn("插入判断", self.text("SKILL.md"))
         self.assertIn("切一小块本期做", self.text("references/planning.md"))
+
+    def test_status_sync_no_longer_waits_for_confirmation(self):
+        # 2026-10-07: statuses the user already set in DIDA are synced, not asked again.
+        for n in ["SKILL.md", "references/dida-push.md", "references/review.md"]:
+            self.assertNotRegex(self.text(n), "用户确认后才改执行台|回读结果改执行台前经过用户确认", n)
+        self.assertIn("回读与同步", self.text("references/dida-push.md"))
 
     def test_history_mentions_still_allowed(self):
         # Counter-example: saying the old routes were cancelled is fine and must not trip the checks.

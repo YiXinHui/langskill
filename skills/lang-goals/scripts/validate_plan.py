@@ -59,6 +59,28 @@ def check_limits(level, items):
     return errors
 
 
+def check_frog_title(item, label):
+    if not isinstance(item.get("frog"), bool):
+        return [f"{label}: frog must be true or false (is the parent chain under a 🐸 goal?)"]
+    titled = str(item.get("title") or "").strip().startswith(FROG)
+    if item["frog"] and not titled:
+        return [f"{label}: under a 🐸 goal, so the title must start with 🐸"]
+    if titled and not item["frog"]:
+        return [f"{label}: title starts with 🐸 but the parent chain is not a 🐸 goal"]
+    return []
+
+
+def check_day_item(item, label):
+    """A todo hangs on a weekly plan, or directly on a monthly goal when it is a one-off."""
+    errors = []
+    if item.get("parent_type") not in ("周计划", "月目标"):
+        errors.append(f"{label}: parent_type must be 周计划 (normal) or 月目标 (one-off)")
+    errors.extend(check_frog_title(item, label))
+    if not has_text(item, "dida_list"):
+        errors.append(f"{label}: dida_list is required (the parent monthly goal's 滴答清单, or 不推)")
+    return errors
+
+
 def check_item(level, period, item, label):
     if not isinstance(item, dict):
         return [f"{label}: must be an object"]
@@ -75,6 +97,10 @@ def check_item(level, period, item, label):
         errors.append(f"{label}: invalid status {status!r}")
     if level in ("month", "week") and status == "已完成" and not has_text(item, "actual_result"):
         errors.append(f"{label}: completed item requires actual_result")
+    if level == "day":
+        errors.extend(check_day_item(item, label))
+    elif "frog" in item:
+        errors.extend(check_frog_title(item, label))
     if level == "month" and "due" in item:
         try:
             if parse_date(item["due"]).strftime("%Y-%m") != period:
