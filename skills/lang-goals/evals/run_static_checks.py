@@ -135,9 +135,10 @@ class FakeDida:
     def apply(self, task, args):
         if "--title" in args:
             task["title"] = self.opt(args, "--title")
-        if "--due-date" in args:
-            local = ds.dt.datetime.strptime(self.opt(args, "--due-date"), "%Y-%m-%dT%H:%M:%S%z")
-            task["dueDate"] = local.astimezone(ds.dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000+0000")
+        for flag, key in (("--due-date", "dueDate"), ("--start-date", "startDate")):
+            if flag in args:
+                local = ds.dt.datetime.strptime(self.opt(args, flag), "%Y-%m-%dT%H:%M:%S%z")
+                task[key] = local.astimezone(ds.dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000+0000")
         if "--priority" in args:
             task["priority"] = int(self.opt(args, "--priority"))
         if "--items" in args:
@@ -227,6 +228,17 @@ class DidaPush(unittest.TestCase):
         code, res = sync(fake, "push", [todo(dida_task_id=tid)])
         self.assertEqual((res[0]["result"], fake.writes), ("exists", []))
         self.assertEqual(fake.tasks[tid]["dueDate"], "2026-10-07T16:00:00.000+0000")
+
+    def test_date_change_moves_start_date_too(self):
+        # 2026-10-07 original failure: a user-made task kept its old start date, so DIDA showed
+        # 10/5–10/6 instead of 10/7 and a task moved to 10/12 still appeared under today.
+        fake = FakeDida()
+        tid = fake.add("inbox-x", "写完提纲", "2026-10-05T16:00:00.000+0000")
+        fake.tasks[tid]["startDate"] = "2026-10-04T16:00:00.000+0000"
+        code, res = sync(fake, "push", [todo(date="2026-10-07", dida_task_id=tid, fields=["date"])])
+        task = fake.tasks[tid]
+        self.assertEqual((code, res[0]["result"]), (0, "updated"))
+        self.assertEqual(task["startDate"], task["dueDate"])
 
     def test_confirmed_title_change_updates_same_task(self):
         fake = FakeDida()

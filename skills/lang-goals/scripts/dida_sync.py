@@ -101,7 +101,9 @@ def task_args(item, zone, fields):
     if "title" in fields:
         args += ["--title", item["title"]]
     if "date" in fields:
-        args += ["--all-day", "--due-date", due_arg(item["date"], zone), "--time-zone", zone]
+        # Set start too: user-made tasks keep their own start date, and DIDA then shows a multi-day span.
+        day = due_arg(item["date"], zone)
+        args += ["--all-day", "--start-date", day, "--due-date", day, "--time-zone", zone]
     if "priority" in fields:
         args += ["--priority", str(item.get("priority", 0))]
     if "content" in fields and item.get("content"):
@@ -150,7 +152,8 @@ def mismatches(runner, task, item, zone, fields, children):
     bad = []
     if "title" in fields and task.get("title") != item["title"]:
         bad.append("title")
-    if "date" in fields and local_date(task.get("dueDate"), task.get("timeZone") or zone) != item["date"]:
+    task_zone = task.get("timeZone") or zone
+    if "date" in fields and {local_date(task.get("dueDate"), task_zone), local_date(task.get("startDate"), task_zone)} != {item["date"]}:
         bad.append("date")
     if "priority" in fields and task.get("priority") != item.get("priority", 0):
         bad.append("priority")
