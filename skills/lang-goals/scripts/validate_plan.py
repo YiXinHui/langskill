@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Validate one complete month/week/day plan read from stdin. No API calls, no writes."""
+"""Validate one complete month/week/day plan read from stdin. No API calls, no writes.
+
+333 = three frogs: hard limit of 3 🐸 per period; totals only get a soft warning."""
 import datetime as dt
 import json
 import re
 import sys
 
 STATUSES = {"未开始", "进行中", "已完成", "未完成", "取消"}
-MAX_ITEMS = 3
+MAX_FROGS = 3
+SOFT_LIMITS = {"week": 5, "day": 5}
 FROG = "🐸"
 
 
@@ -40,22 +43,46 @@ def dimensions(item):
     return [v.strip() for v in values if isinstance(v, str) and v.strip()]
 
 
+def is_frog(item):
+    return str(item.get("title") or "").strip().startswith(FROG)
+
+
 def check_limits(level, items):
-    if level != "month":
-        if len(items) > MAX_ITEMS:
-            return [f"333 limit: {len(items)} items in this period, max {MAX_ITEMS} (completed and cancelled items count)"]
-        return []
+    """333 means three frogs: at most 3 🐸 per month, week or day. Totals are not capped."""
+    frogs = sum(1 for item in items if is_frog(item))
+    if frogs > MAX_FROGS:
+        return [f"333 limit: {frogs} frog items in this {level}, max {MAX_FROGS} (completed and cancelled frogs count)"]
+    return []
+
+
+def soft_warnings(plan):
+    """Not errors: remind the user when a week or day gets crowded; the user decides."""
+    items = [item for item in plan.get("items") or [] if isinstance(item, dict)]
+    limit = SOFT_LIMITS.get(plan.get("level"))
+    if limit and len(items) > limit:
+        return [f"{len(items)} items in this {plan['level']}, more than {limit}: ask whether to trim"]
+    return []
+
+
+def check_frog_title(item, label):
+    if not isinstance(item.get("frog"), bool):
+        return [f"{label}: frog must be true or false (is the parent chain under a 🐸 goal?)"]
+    titled = str(item.get("title") or "").strip().startswith(FROG)
+    if item["frog"] and not titled:
+        return [f"{label}: under a 🐸 goal, so the title must start with 🐸"]
+    if titled and not item["frog"]:
+        return [f"{label}: title starts with 🐸 but the parent chain is not a 🐸 goal"]
+    return []
+
+
+def check_day_item(item, label):
+    """A todo hangs on a weekly plan, or directly on a monthly goal when it is a one-off."""
     errors = []
-    counts = {}
-    for item in items:
-        for dimension in set(dimensions(item)):
-            counts[dimension] = counts.get(dimension, 0) + 1
-    for dimension, count in counts.items():
-        if count > MAX_ITEMS:
-            errors.append(f"333 limit: {count} monthly goals in {dimension}, max {MAX_ITEMS} per dimension (completed and cancelled items count)")
-    frogs = sum(1 for item in items if str(item.get("title") or "").strip().startswith(FROG))
-    if frogs > MAX_ITEMS:
-        errors.append(f"333 limit: {frogs} frog goals, max {MAX_ITEMS} across all dimensions (completed and cancelled items count)")
+    if item.get("parent_type") not in ("周计划", "月目标"):
+        errors.append(f"{label}: parent_type must be 周计划 (normal) or 月目标 (one-off)")
+    errors.extend(check_frog_title(item, label))
+    if not has_text(item, "dida_list"):
+        errors.append(f"{label}: dida_list is required (the parent monthly goal's 滴答清单, or 不推)")
     return errors
 
 
@@ -75,6 +102,10 @@ def check_item(level, period, item, label):
         errors.append(f"{label}: invalid status {status!r}")
     if level in ("month", "week") and status == "已完成" and not has_text(item, "actual_result"):
         errors.append(f"{label}: completed item requires actual_result")
+    if level == "day":
+        errors.extend(check_day_item(item, label))
+    elif "frog" in item:
+        errors.extend(check_frog_title(item, label))
     if level == "month" and "due" in item:
         try:
             if parse_date(item["due"]).strftime("%Y-%m") != period:
@@ -109,10 +140,12 @@ def validate(plan):
 
 def main():
     try:
-        errors = validate(json.load(sys.stdin))
+        plan = json.load(sys.stdin)
+        errors = validate(plan)
+        warnings = soft_warnings(plan) if isinstance(plan, dict) else []
     except (ValueError, TypeError) as exc:
-        errors = [f"invalid JSON: {exc}"]
-    print(json.dumps({"ok": not errors, "errors": errors}, ensure_ascii=False))
+        errors, warnings = [f"invalid JSON: {exc}"], []
+    print(json.dumps({"ok": not errors, "errors": errors, "warnings": warnings}, ensure_ascii=False))
     return 1 if errors else 0
 
 

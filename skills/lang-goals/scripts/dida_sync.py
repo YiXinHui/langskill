@@ -4,6 +4,7 @@
 Usage (JSON on stdin, JSON on stdout; exit 1 if any item failed):
   python3 dida_sync.py push < payload.json
   python3 dida_sync.py read < payload.json
+  python3 dida_sync.py untracked < payload.json   # tasks the user added in DIDA, not pushed from the plan
 
 The CLI must be logged in on this machine; set DIDA_BIN if `dida` is not on PATH.
 Never prints task content or CLI auth output.
@@ -100,7 +101,9 @@ def task_args(item, zone, fields):
     if "title" in fields:
         args += ["--title", item["title"]]
     if "date" in fields:
-        args += ["--all-day", "--due-date", due_arg(item["date"], zone), "--time-zone", zone]
+        # Set start too: user-made tasks keep their own start date, and DIDA then shows a multi-day span.
+        day = due_arg(item["date"], zone)
+        args += ["--all-day", "--start-date", day, "--due-date", day, "--time-zone", zone]
     if "priority" in fields:
         args += ["--priority", str(item.get("priority", 0))]
     if "content" in fields and item.get("content"):
@@ -149,7 +152,8 @@ def mismatches(runner, task, item, zone, fields, children):
     bad = []
     if "title" in fields and task.get("title") != item["title"]:
         bad.append("title")
-    if "date" in fields and local_date(task.get("dueDate"), task.get("timeZone") or zone) != item["date"]:
+    task_zone = task.get("timeZone") or zone
+    if "date" in fields and {local_date(task.get("dueDate"), task_zone), local_date(task.get("startDate"), task_zone)} != {item["date"]}:
         bad.append("date")
     if "priority" in fields and task.get("priority") != item.get("priority", 0):
         bad.append("priority")
@@ -246,11 +250,43 @@ def read_one(runner, project_id, zone, item):
     return out
 
 
+def untracked(runner, payload):
+    """Open tasks in the given lists that are not known plan tasks: dated inside the window, or undated but created in it."""
+    zone, start, end = payload.get("time_zone", "Asia/Shanghai"), payload["from"], payload["to"]
+    known = set(payload.get("known_ids") or [])
+    found = {}
+    for project_id in payload["project_ids"]:
+        args = ["task", "filter", "--projects", project_id, "--start-date", due_arg(start, zone),
+                "--end-date", due_arg(end, zone, "23:59:59"), "--status", "0"]
+        dated = as_list(cli_json(runner, args))
+        data = cli_json(runner, ["project", "data", project_id]) or {}
+        undated = [t for t in data.get("tasks", []) if not t.get("dueDate")
+                   and start <= (local_date(t.get("createdTime"), zone) or "") <= end]
+        for task in dated + undated:
+            if task.get("id") in known or task.get("parentId") in known or task.get("status", 0) != 0:
+                continue
+            found[task["id"]] = {
+                "dida_task_id": task["id"],
+                "project_id": task.get("projectId"),
+                "title": task.get("title"),
+                "due_date": local_date(task.get("dueDate"), task.get("timeZone") or zone),
+                "created_date": local_date(task.get("createdTime"), zone),
+            }
+    return sorted(found.values(), key=lambda t: (t["due_date"] or "9999", t["title"] or ""))
+
+
 def main(argv, stdin=sys.stdin, runner=run_cli):
-    if len(argv) != 2 or argv[1] not in ("push", "read"):
+    if len(argv) != 2 or argv[1] not in ("push", "read", "untracked"):
         print(__doc__, file=sys.stderr)
         return 2
     payload = json.load(stdin)
+    if argv[1] == "untracked":
+        try:
+            print(json.dumps(untracked(runner, payload), ensure_ascii=False, indent=2))
+            return 0
+        except (CliError, KeyError, ValueError) as err:
+            print(json.dumps({"result": "error", "error": short_error(str(err))}, ensure_ascii=False))
+            return 1
     project_id, zone = payload["project_id"], payload.get("time_zone", "Asia/Shanghai")
     handler = push_one if argv[1] == "push" else read_one
     results, failed = [], False
