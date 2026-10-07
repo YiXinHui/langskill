@@ -33,9 +33,10 @@ class PlanChecks(unittest.TestCase):
         plan = {"level": "month", "period": "2026-10", "items": [item("甲"), item("乙"), item("丙", due="2026-10-31")]}
         self.assertEqual(vp.validate(plan), [])
 
-    def test_fourth_item_in_one_dimension_fails(self):
+    def test_fourth_item_in_one_dimension_is_fine(self):
+        # 2026-10-07: 333 means three frogs, not three goals; non-frog totals are not capped.
         plan = {"level": "month", "period": "2026-10", "items": [item(t) for t in "甲乙丙丁"]}
-        self.assertTrue(any("per dimension" in e for e in vp.validate(plan)))
+        self.assertEqual(vp.validate(plan), [])
 
     def test_month_non_frogs_across_dimensions_pass(self):
         dims = ["工作事业", "工作事业", "体验突破", "财务理财", "学习成长", "人际社交"]
@@ -48,21 +49,27 @@ class PlanChecks(unittest.TestCase):
         plan = {"level": "month", "period": "2026-10", "items": [item("🐸" + t, dimension=d) for t, d in zip("甲乙丙丁", dims)]}
         self.assertTrue(any("frog" in e for e in vp.validate(plan)))
 
-    def test_multi_dimension_item_counts_in_each(self):
-        items = [item(t) for t in "甲乙丙"] + [item("丁", dimension=["学习成长", "工作事业"])]
-        self.assertTrue(any("工作事业" in e for e in vp.validate({"level": "month", "period": "2026-10", "items": items})))
+    def test_frogs_capped_in_week_and_day_too(self):
+        week = {"level": "week", "period": "2026-10-05", "items": [item("🐸" + t) for t in "甲乙丙丁"]}
+        self.assertTrue(any("frog" in e for e in vp.validate(week)))
+        today = {"level": "day", "period": "2026-10-07", "items": [day("🐸" + t, frog=True) for t in "甲乙丙丁"]}
+        self.assertTrue(any("frog" in e for e in vp.validate(today)))
 
     def test_month_needs_dimension(self):
         plan = {"level": "month", "period": "2026-10", "items": [item("甲", dimension=None)]}
         self.assertTrue(any("dimension" in e for e in vp.validate(plan)))
 
-    def test_week_still_total_three(self):
-        items = [item(t, dimension=d) for t, d in zip("甲乙丙丁", ["工作事业", "体验突破", "财务理财", "学习成长"])]
-        self.assertTrue(any("333" in e for e in vp.validate({"level": "week", "period": "2026-10-05", "items": items})))
+    def test_crowded_week_or_day_only_warns(self):
+        # Counter-example: six items is allowed, but the user gets a soft reminder.
+        week = {"level": "week", "period": "2026-10-05", "items": [item(t) for t in "甲乙丙丁戊己"]}
+        self.assertEqual(vp.validate(week), [])
+        self.assertTrue(vp.soft_warnings(week))
+        five = {"level": "day", "period": "2026-10-07", "items": [day(t) for t in "甲乙丙丁戊"]}
+        self.assertEqual((vp.validate(five), vp.soft_warnings(five)), ([], []))
 
-    def test_completed_and_cancelled_still_count(self):
-        items = [item("甲", status="已完成", actual_result="做成了"), item("乙", status="取消"), item("丙"), item("丁")]
-        self.assertTrue(any("333" in e for e in vp.validate({"level": "week", "period": "2026-10-05", "items": items})))
+    def test_completed_and_cancelled_frogs_still_count(self):
+        items = [item("🐸甲", status="已完成", actual_result="做成了"), item("🐸乙", status="取消"), item("🐸丙"), item("🐸丁")]
+        self.assertTrue(any("frog" in e for e in vp.validate({"level": "week", "period": "2026-10-05", "items": items})))
 
     def test_week_must_start_monday(self):
         self.assertEqual(vp.validate({"level": "week", "period": "2026-10-06", "items": []}), ["week period must be a Monday"])
@@ -349,10 +356,11 @@ class RuleConsistency(unittest.TestCase):
         hits = [n for n in self.FILES if re.search(r"(下月|本月|每月)最多\s*3\s*个(关键)?成果", self.text(n))]
         self.assertEqual(hits, [])
 
-    def test_month_rule_stated_where_month_plans_are_written(self):
-        # Adjacent case: both files that lead to writing a month plan carry the per-dimension rule.
-        for n in ["references/planning.md", "references/review.md"]:
-            self.assertRegex(self.text(n), r"每个维度最多\s*3\s*条", n)
+    def test_three_frogs_rule_stated_where_plans_are_written(self):
+        # Adjacent case: files that lead to writing plans carry the three-frogs rule, not a total cap.
+        for n in ["references/planning.md", "references/review.md", "SKILL.md"]:
+            self.assertRegex(self.text(n), r"3\s*(只|个)\s*🐸|3只🐸", n)
+            self.assertNotRegex(self.text(n), r"每个?维度最多\s*3\s*条|合计最多\s*3\s*项|各最多\s*3\s*项", n)
 
     def test_no_cancelled_visual_presented_as_current(self):
         # Original failure: SKILL.md still described the deleted BaseApp board as the live entry.
@@ -386,6 +394,11 @@ class RuleConsistency(unittest.TestCase):
         for n in ["SKILL.md", "references/dida-push.md", "references/review.md"]:
             self.assertNotRegex(self.text(n), "用户确认后才改执行台|回读结果改执行台前经过用户确认", n)
         self.assertIn("回读与同步", self.text("references/dida-push.md"))
+
+    def test_project_ideas_stay_out_of_someday_list(self):
+        # 2026-10-07 original failure: project ideas were suggested for the personal 「将来也许」 list.
+        text = self.text("references/planning.md")
+        self.assertIn("个人生活类的想法才放「将来也许」", text)
 
     def test_history_mentions_still_allowed(self):
         # Counter-example: saying the old routes were cancelled is fine and must not trip the checks.
