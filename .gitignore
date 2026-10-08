@@ -1,0 +1,42 @@
+.DS_Store
+*.swp
+*.swo
+*~
+
+# AI 工具生成的配置目录
+.*/
+!.git/
+!.gitignore
+skills-lock.json
+
+# C 方案三层架构 — 私人配置不发布
+skills/*/references/personal-config.md
+skills/lang/source-of-truth/references/personal-config.md
+
+# skill-builder evals 调试产物（可能含敏感对话）
+skills/*-workspace/
+skills/*/evals/*
+!skills/*/evals/evals.json
+!skills/*/evals/run_static_checks.py
+!skills/*/evals/*_smoke-results.md
+!skills/lang-poster/evals/minimal-poster.html
+
+# 归档 Skill 的本地评测调试产物
+archive/*/evals/*
+!archive/*/evals/evals.json
+!archive/*/evals/run_static_checks.py
+!archive/*/evals/*_smoke-results.md
+
+# Node 依赖
+node_modules/
+
+# 构建产物
+dist/
+
+# Python checks for the Source of Truth module
+__pycache__/
+*.pyc
+
+# 私人文件（个人配置、个人案例等）不发布
+skills/**/personal-*
+skills/**/private-*

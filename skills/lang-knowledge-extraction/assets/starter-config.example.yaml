@@ -1,0 +1,53 @@
+schema_version: 1
+profile: starter
+
+owner:
+  scope: personal
+  review_owner: <姓名或角色>
+  default_access_scope: private
+
+enabled_libraries:
+  - concepts
+  - judgments
+
+storage:
+  mode: <structured_table|workbook|document_table|database>
+  platform: <feishu|dingtalk|wecom|local_excel|custom|other>
+  authority_ref: <唯一权威URL、文件路径或数据库资源名>
+  credential_ref: <可选；只写凭证来源名，不写秘密>
+  mappings:
+    concepts: <表ID、工作表名、区块锚点或数据库表>
+    judgments: <表ID、工作表名、区块锚点或数据库表>
+    cases: null
+    quotes: null
+
+source_intake:
+  enabled:
+    - text
+    - chat
+    - screenshot
+    - audio
+    - transcript
+    - document
+    - file
+    - link
+  provenance_required: true
+  partial_material_policy: bounded_candidate_or_request_context
+
+review:
+  write_mode: preview_then_confirm
+  statuses:
+    pending: pending_review
+    confirmed: confirmed
+    discarded: discarded
+
+taxonomy:
+  bootstrap: from_confirmed_knowledge
+
+maintenance:
+  dedupe_scope: authority
+  backup_owner: <姓名或角色>
+  backup_ref: <备份位置；在线平台可写平台恢复机制>
+  automation_enabled: false
+  confidential_partition_enabled: false
+  cross_batch_concept_promotion_enabled: false

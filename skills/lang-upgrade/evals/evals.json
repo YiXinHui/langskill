@@ -1,0 +1,80 @@
+{
+  "skill_name": "lang-upgrade",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "我的 LangSkill 以前只装在 ~/.claude/skills，现在升级最新版，并让 Codex 和 Claude Code 都能调用。",
+      "expected_output": "识别为旧 Claude 单端安装，先保留可恢复备份，再通过统一全局安装命令迁移到 ~/.agents/skills；Claude Code 指向共享入口，Codex 直接发现共享入口，不继续制造 ~/.codex/skills 副本。",
+      "expectations": [
+        "使用统一安装器同时指定 codex 和 claude-code",
+        "单独为 CodeBuddy 执行 codebuddy agent 安装",
+        "最终共享入口位于 ~/.agents/skills",
+        "不会把 Claude Code 目录继续当作唯一正文",
+        "升级后验证机器清单中的全部 Skill 在 Codex、Claude Code 和 CodeBuddy 可见"
+      ],
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "升级 langskill。当前 ~/.agents/skills/lang 是软链接，指向一个有未提交修改的 langskill Git 开发仓。",
+      "expected_output": "识别开发仓映射并停止覆盖，不用远端安装副本替换项目源码；明确报告未提交改动是阻塞条件，保留现有软链接和工作树。",
+      "expectations": [
+        "识别共享入口指向 Git 开发仓",
+        "发现工作树未提交改动后停止升级",
+        "不覆盖、删除或复制开发仓正文",
+        "说明清理或提交改动后才能继续"
+      ],
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "检查并升级 langskill。当前公开清单中的 Skill 已经全部从 ~/.agents/skills 共享，Claude Code 软链正常，Codex 没有重复入口，退役入口均不可见，而且远端版本没有变化。",
+      "expected_output": "验证清单、三端发现和单一入口后报告已是最新状态，不重装、不删除入口，也不创建 Desktop 或 ~/.codex 重复映射。",
+      "expectations": [
+        "核对 skill-catalog 中的完整清单",
+        "确认 Codex、Claude Code 和 CodeBuddy 各只有一个可发现入口",
+        "版本未变化且退役入口已清理时不执行重装",
+        "不创建工作区级重复入口",
+        "不把三种 agent 合并成会漏掉 CodeBuddy 的单条安装命令"
+      ],
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "我只想让 LangSkill 在腾讯 WorkBuddy / CodeBuddy 里可用，应该怎么装和怎么验证？",
+      "expected_output": "使用 npx skills add ... -a codebuddy -s '*' -y 单独安装到 ~/.codebuddy/skills/；用 npx skills list -g -a codebuddy --json 验证完整清单，不要求用户继续配置 ~/.codex/skills。",
+      "expectations": [
+        "使用 codebuddy agent",
+        "目标目录为 ~/.codebuddy/skills/",
+        "安装命令不与 Codex/Claude Code 合并",
+        "包含 CodeBuddy 专属发现验证"
+      ],
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "把 LangSkill 从 v0.18.0 升到最新版。旧的 lang-wechat-pyq 仍在共享目录、Claude Code 软链和 CodeBuddy 安装目录里。",
+      "expected_output": "读取改名表中的退役标记，先备份并确认这些入口属于旧 LangSkill 安装，再清理三个平台的精确旧入口；来源不同或有独立内容时保留并报告冲突。升级后验证旧入口不再可见。",
+      "expectations": [
+        "退役入口在删除前已备份",
+        "只处理改名表明确列出的旧名称",
+        "不删除来源不明或内容不同的同名目录",
+        "Codex、Claude Code 和 CodeBuddy 都不再发现退役 Skill"
+      ],
+      "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "帮我安装这套 Skill：https://github.com/YiXinHui/langskill 。我平时用豆包电脑版，豆包里也要能用。",
+      "expected_output": "按 README「给 AI 助手的安装步骤」先装共享入口和 CodeBuddy，再运行链接脚本把全部 LangSkill 链接进豆包的 .user_skills；不以“豆包不是同一个环境”为由拒绝，也不复制第二份正文。",
+      "expectations": [
+        "先检查 node -v，缺 Node.js 时停下说明",
+        "分两条命令安装共享入口与 CodeBuddy",
+        "运行 link-extra-agents.mjs 为豆包建立指向 ~/.agents/skills 的链接",
+        "遇到 stale_copy 先说明旧副本不会升级，再按用户同意加 --refresh-copies",
+        "最后告诉用户新开对话用 /lang 开始"
+      ],
+      "files": []
+    }
+  ]
+}

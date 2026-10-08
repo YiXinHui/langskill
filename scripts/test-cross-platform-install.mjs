@@ -1,0 +1,98 @@
+#!/usr/bin/env node
+import { execFile } from "node:child_process";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
+
+const execFileAsync = promisify(execFile);
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const catalog = JSON.parse(await fs.readFile(path.join(root, "skill-catalog.json"), "utf8"));
+const expectedIds = catalog.skills.map((skill) => skill.id).sort();
+const testRoot = await fs.mkdtemp(path.join(os.tmpdir(), "langskill-install-"));
+
+function assert(condition, message) {
+  if (!condition) throw new Error(message);
+}
+
+try {
+  await fs.mkdir(path.join(testRoot, ".codex"));
+  const installOptions = {
+    cwd: testRoot,
+    env: { ...process.env, DISABLE_TELEMETRY: "1", NO_COLOR: "1" },
+    maxBuffer: 10 * 1024 * 1024,
+  };
+  await execFileAsync("npx", ["skills", "add", root, "-s", "*", "-a", "codex", "claude-code", "-y"], installOptions);
+  await execFileAsync("npx", ["skills", "add", root, "-s", "*", "-a", "codebuddy", "-y"], installOptions);
+
+  const canonicalRoot = path.join(testRoot, ".agents", "skills");
+  const codeBuddyRoot = path.join(testRoot, ".codebuddy", "skills");
+  const actualIds = (await fs.readdir(canonicalRoot)).sort();
+  const codeBuddyIds = (await fs.readdir(codeBuddyRoot)).sort();
+  assert(JSON.stringify(actualIds) === JSON.stringify(expectedIds), "canonical install set differs from skill-catalog.json");
+  assert(JSON.stringify(codeBuddyIds) === JSON.stringify(expectedIds), "CodeBuddy install set differs from skill-catalog.json");
+  const packageVersion = (await fs.readFile(path.join(root, "VERSION"), "utf8")).trim();
+  const installedLangVersion = (await fs.readFile(path.join(canonicalRoot, "lang", "VERSION"), "utf8")).trim();
+  const codeBuddyLangVersion = (await fs.readFile(path.join(codeBuddyRoot, "lang", "VERSION"), "utf8")).trim();
+  assert(installedLangVersion === packageVersion, "installed lang version marker differs from package VERSION");
+  assert(codeBuddyLangVersion === packageVersion, "CodeBuddy lang version marker differs from package VERSION");
+  for (const installedRoot of [canonicalRoot, codeBuddyRoot]) {
+    const moduleRoot = path.join(installedRoot, "lang", "source-of-truth");
+    for (const relative of ["README.md", "scripts/init_sot.py", "scripts/init_company.py", "assets/company-template.json"]) {
+      await fs.access(path.join(moduleRoot, relative));
+    }
+  }
+
+  for (const id of expectedIds) {
+    await fs.access(path.join(canonicalRoot, id, "SKILL.md"));
+    await fs.access(path.join(codeBuddyRoot, id, "SKILL.md"));
+    const claudeEntry = path.join(testRoot, ".claude", "skills", id);
+    assert((await fs.lstat(claudeEntry)).isSymbolicLink(), `Claude Code entry is not a symlink: ${id}`);
+    assert((await fs.readlink(claudeEntry)) === `../../.agents/skills/${id}`, `Claude Code entry bypasses shared root: ${id}`);
+    try {
+      await fs.lstat(path.join(testRoot, ".codex", "skills", id));
+      throw new Error(`duplicate Codex entry exists: ${id}`);
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+    }
+  }
+
+  const { stdout } = await execFileAsync("npx", ["skills", "list", "--json"], {
+    cwd: testRoot,
+    env: { ...process.env, DISABLE_TELEMETRY: "1", NO_COLOR: "1" },
+    maxBuffer: 10 * 1024 * 1024,
+  });
+  const installed = JSON.parse(stdout).filter((skill) => expectedIds.includes(skill.name));
+  assert(installed.length === expectedIds.length, `discovery count is ${installed.length}, expected ${expectedIds.length}`);
+  for (const skill of installed) {
+    assert(skill.agents.includes("Codex"), `Codex cannot discover ${skill.name}`);
+    assert(skill.agents.includes("Claude Code"), `Claude Code cannot discover ${skill.name}`);
+    assert(skill.agents.includes("CodeBuddy"), `CodeBuddy cannot discover ${skill.name}`);
+  }
+
+  const doubaoWorkspaces = [
+    path.join(testRoot, "Library", "Application Support", "Doubao", "Profile 1", ".doubao", "agent_mode", "workspace"),
+    path.join(testRoot, "Library", "Application Support", "DoubaoWork", "Default", ".doubaowork", "agent_mode", "workspace"),
+  ];
+  for (const workspace of doubaoWorkspaces) await fs.mkdir(workspace, { recursive: true });
+  const linkScript = path.join(canonicalRoot, "lang-upgrade", "scripts", "link-extra-agents.mjs");
+  const runLink = async () => JSON.parse((await execFileAsync("node", [linkScript], {
+    env: { ...process.env, LANGSKILL_HOME: testRoot, APPDATA: path.join(testRoot, "Library", "Application Support"), LOCALAPPDATA: path.join(testRoot, "none") },
+  })).stdout);
+  const firstLink = await runLink();
+  const secondLink = await runLink();
+  assert(firstLink.targets.length === doubaoWorkspaces.length, `Doubao targets found: ${firstLink.targets.length}`);
+  for (const [index, target] of firstLink.targets.entries()) {
+    assert(JSON.stringify([...target.created].sort()) === JSON.stringify(expectedIds), `Doubao links differ from catalog: ${target.root}`);
+    assert(JSON.stringify([...secondLink.targets[index].existing].sort()) === JSON.stringify(expectedIds), `Doubao relink is not idempotent: ${target.root}`);
+    for (const id of expectedIds) {
+      assert(path.resolve(path.dirname(path.join(target.root, id)), await fs.readlink(path.join(target.root, id))) === path.join(canonicalRoot, id), `Doubao entry bypasses shared root: ${id}`);
+      await fs.access(path.join(target.root, id, "SKILL.md"));
+    }
+  }
+
+  console.log(`OK: ${expectedIds.length} skills install through shared Codex/Claude Code roots and CodeBuddy, are discoverable by all three, and link into Doubao`);
+} finally {
+  await fs.rm(testRoot, { recursive: true, force: true });
+}
