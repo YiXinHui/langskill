@@ -102,6 +102,35 @@ class PlanChecks(unittest.TestCase):
         wrong = {"level": "day", "period": "2026-10-07", "items": [day("🐸约人见面", frog=False)]}
         self.assertTrue(any("not a 🐸 goal" in e for e in vp.validate(wrong)))
 
+    def test_day_frog_off_chain_by_principle(self):
+        # 2026-10-07 owner chose: today's 🐸 follow the three-frog principles, not only the 🐸 chain.
+        ok = {"level": "day", "period": "2026-10-07", "items": [
+            day("🐸写大纲第一节", frog=True), day("🐸给合作方发报价", frog=False, frog_pick="重要关系"),
+            day("🐸回访客户A", frog=False, frog_pick="手头最重要"), day("整理素材")]}
+        self.assertEqual(vp.validate(ok), [])
+        self.assertEqual(vp.soft_warnings(ok), [])
+        bad_pick = {"level": "day", "period": "2026-10-07", "items": [day("🐸发报价", frog=False, frog_pick="很急")]}
+        self.assertTrue(any("frog_pick must be" in e for e in vp.validate(bad_pick)))
+        untitled = {"level": "day", "period": "2026-10-07", "items": [day("发报价", frog=False, frog_pick="重要关系")]}
+        self.assertTrue(any("must start with 🐸" in e for e in vp.validate(untitled)))
+        chain_pick = {"level": "day", "period": "2026-10-07", "items": [day("🐸写大纲", frog=True, frog_pick="重要关系")]}
+        self.assertTrue(any("only for todos outside" in e for e in vp.validate(chain_pick)))
+
+    def test_day_off_chain_frogs_share_the_cap(self):
+        # Counter-example: picking off-chain frogs never lifts the cap of three.
+        items = [day("🐸日更", frog=True), day("🐸写大纲", frog=True), day("🐸改目录", frog=True),
+                 day("🐸发报价", frog=False, frog_pick="重要关系")]
+        self.assertTrue(any("333 limit" in e for e in vp.validate({"level": "day", "period": "2026-10-07", "items": items})))
+
+    def test_day_without_annual_frog_warns(self):
+        plan = {"level": "day", "period": "2026-10-07", "items": [day("🐸发报价", frog=False, frog_pick="重要关系")]}
+        self.assertEqual(vp.validate(plan), [])
+        self.assertTrue(any("annual goal" in w for w in vp.soft_warnings(plan)))
+
+    def test_week_frog_still_follows_chain(self):
+        week = {"level": "week", "period": "2026-10-05", "items": [item("🐸临时重点", frog=False)]}
+        self.assertTrue(any("not a 🐸 goal" in e for e in vp.validate(week)))
+
     def test_day_todo_needs_dida_list(self):
         bad = {"level": "day", "period": "2026-10-07", "items": [day("写完提纲", dida_list="")]}
         self.assertTrue(any("dida_list" in e for e in vp.validate(bad)))

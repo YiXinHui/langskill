@@ -11,6 +11,8 @@ STATUSES = {"未开始", "进行中", "已完成", "未完成", "取消"}
 MAX_FROGS = 3
 SOFT_LIMITS = {"week": 5, "day": 5}
 FROG = "🐸"
+# A day may also pick 🐸 off the chain, by 邹小强's three-frog principles (see references/daily-plan.md).
+FROG_PICKS = {"年度目标", "重要关系", "手头最重要"}
 
 
 def parse_date(value):
@@ -58,10 +60,15 @@ def check_limits(level, items):
 def soft_warnings(plan):
     """Not errors: remind the user when a week or day gets crowded; the user decides."""
     items = [item for item in plan.get("items") or [] if isinstance(item, dict)]
+    warnings = []
     limit = SOFT_LIMITS.get(plan.get("level"))
     if limit and len(items) > limit:
-        return [f"{len(items)} items in this {plan['level']}, more than {limit}: ask whether to trim"]
-    return []
+        warnings.append(f"{len(items)} items in this {plan['level']}, more than {limit}: ask whether to trim")
+    frogs = [item for item in items if is_frog(item)]
+    if plan.get("level") == "day" and frogs and not any(
+            item.get("frog") is True or item.get("frog_pick") == "年度目标" for item in frogs):
+        warnings.append("no 🐸 today advances the annual goal: the first frog should come from a 🐸 goal")
+    return warnings
 
 
 def check_frog_title(item, label):
@@ -75,12 +82,31 @@ def check_frog_title(item, label):
     return []
 
 
+def check_day_frog(item, label):
+    """Under a 🐸 goal → always 🐸. Off the chain → 🐸 only when picked by a three-frog principle."""
+    if not isinstance(item.get("frog"), bool):
+        return [f"{label}: frog must be true or false (is the parent chain under a 🐸 goal?)"]
+    titled = is_frog(item)
+    pick = item.get("frog_pick")
+    if item["frog"]:
+        if pick is not None:
+            return [f"{label}: frog_pick is only for todos outside a 🐸 goal"]
+        return [] if titled else [f"{label}: under a 🐸 goal, so the title must start with 🐸"]
+    if pick is not None and pick not in FROG_PICKS:
+        return [f"{label}: frog_pick must be one of {sorted(FROG_PICKS)}"]
+    if titled and pick is None:
+        return [f"{label}: title starts with 🐸 but the parent chain is not a 🐸 goal; set frog_pick to say why it is today's frog"]
+    if pick is not None and not titled:
+        return [f"{label}: picked as today's frog, so the title must start with 🐸"]
+    return []
+
+
 def check_day_item(item, label):
     """A todo hangs on a weekly plan, or directly on a monthly goal when it is a one-off."""
     errors = []
     if item.get("parent_type") not in ("周计划", "月目标"):
         errors.append(f"{label}: parent_type must be 周计划 (normal) or 月目标 (one-off)")
-    errors.extend(check_frog_title(item, label))
+    errors.extend(check_day_frog(item, label))
     if not has_text(item, "dida_list"):
         errors.append(f"{label}: dida_list is required (the parent monthly goal's 滴答清单, or 不推)")
     return errors
