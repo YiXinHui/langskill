@@ -172,6 +172,11 @@ class FakeDida:
             task["priority"] = int(self.opt(args, "--priority"))
         if "--items" in args:
             task["items"] = json.loads(self.opt(args, "--items"))
+        if "--sort-order" in args:
+            task["sortOrder"] = int(self.opt(args, "--sort-order"))
+        for arg in args:
+            if arg.startswith("--status="):
+                task["status"] = int(arg.split("=", 1)[1])
 
     def __call__(self, args):
         args = [a for a in args if a != "--json"]
@@ -191,13 +196,18 @@ class FakeDida:
             low, high = (ds.dt.datetime.strptime(self.opt(args, n), "%Y-%m-%dT%H:%M:%S%z") for n in ("--start-date", "--end-date"))
             def due(t):
                 return ds.dt.datetime.strptime(t["dueDate"], "%Y-%m-%dT%H:%M:%S.000%z") if t["dueDate"] else None
+            status = next((a.split("=", 1)[1] for a in args if a.startswith("--status=")), self.opt(args, "--status") or "0,2")
+            # Real CLI quirk: -1 listed with other codes drops abandoned tasks; -1 alone returns every closed task.
+            wanted = {-1, 2} if status == "-1" else {int(c) for c in status.split(",") if c != "-1"}
             hits = [t for i, t in self.tasks.items() if i not in self.deleted and t["projectId"] == self.opt(args, "--projects")
-                    and due(t) and low <= due(t) <= high]
+                    and due(t) and low <= due(t) <= high and t.get("status", 0) in wanted]
             return json.dumps(hits)
         self.writes.append(kind)
         if kind == "create":
             tid = self.add(self.opt(args, "--project"), "", None)
             self.unindexed.add(tid)
+            # Real DIDA gives each new task a smaller sortOrder, so unsorted children show newest first.
+            self.tasks[tid]["sortOrder"] = -self.next_id * 1000
             self.apply(self.tasks[tid], args)
             parent = self.opt(args, "--parent-id")
             if parent:
@@ -210,6 +220,9 @@ class FakeDida:
         if kind == "update":
             self.apply(self.tasks[args[2]], args)
             return "{}"
+        if kind == "complete":
+            self.tasks[args[3]].update(status=2, completedTime="2026-10-09T02:00:00.000+0000")
+            return ""
         raise AssertionError(f"unexpected write: {args}")
 
 
@@ -313,6 +326,22 @@ class DidaTargets(unittest.TestCase):
         kids = [fake.tasks[c] for c in parent["childIds"]]
         self.assertEqual((code, [k["title"] for k in kids], len(kids[0]["items"])), (0, ["甲", "乙"], 2))
 
+    def test_child_tasks_show_in_the_order_they_are_done(self):
+        # 2026-10-09 original failure: 看初稿 → 拍板 → 说定了 showed in DIDA as 说定了 → 拍板 → 看初稿.
+        fake = FakeDida()
+        subs = [{"title": "看初稿"}, {"title": "拍板", "subtasks": [{"title": "甲"}]}, {"title": "说定了"}]
+        code, res = sync(fake, "push", [todo(subtasks=subs)])
+        kids = [fake.tasks[c] for c in fake.tasks[res[0]["dida_task_id"]]["childIds"]]
+        shown = [k["title"] for k in sorted(kids, key=lambda k: k["sortOrder"])]
+        self.assertEqual((code, res[0]["result"], shown), (0, "created", ["看初稿", "拍板", "说定了"]))
+
+    def test_flat_checklist_keeps_its_order(self):
+        # Adjacent case: one level stays a checklist in the given order, no child tasks or sort values.
+        fake = FakeDida()
+        res = sync(fake, "push", [todo(subtasks=[{"title": t} for t in "甲乙丙"])])[1]
+        task = fake.tasks[res[0]["dida_task_id"]]
+        self.assertEqual(([i["title"] for i in task["items"]], task.get("childIds")), (["甲", "乙", "丙"], None))
+
     def test_fourth_subtask_is_rejected_before_any_write(self):
         fake = FakeDida()
         code, res = sync(fake, "push", [todo(subtasks=[{"title": t} for t in "甲乙丙丁"])])
@@ -368,6 +397,42 @@ class DidaRead(unittest.TestCase):
         self.assertEqual((by_id["r3"]["moved"], by_id["r3"]["project_id"]), (True, "other"))
         self.assertFalse(by_id["r4"]["found"])
         self.assertEqual(fake.writes, [])
+
+
+class DidaClose(unittest.TestCase):
+    """2026-10-09: after the user says 「行」, overdue tasks are completed or abandoned by the agent."""
+
+    def test_confirmed_complete_and_abandon(self):
+        fake = FakeDida()
+        done = fake.add("inbox-x", "甲", "2026-10-07T16:00:00.000+0000")
+        drop = fake.add("inbox-x", "乙", "2026-10-07T16:00:00.000+0000")
+        items = [todo(record_id="r1", title="甲", dida_task_id=done, action="complete"),
+                 todo(record_id="r2", title="乙", dida_task_id=drop, action="abandon")]
+        code, res = sync(fake, "close", items)
+        self.assertEqual((code, [r["result"] for r in res]), (0, ["completed", "abandoned"]))
+        self.assertEqual((fake.tasks[done]["status"], fake.tasks[drop]["status"]), (2, -1))
+
+    def test_task_the_user_already_closed_is_left_alone(self):
+        # Counter-example: the user abandoned it in DIDA; a stale 「complete」 must not reopen or flip it.
+        fake = FakeDida()
+        tid = fake.add("inbox-x", "甲", "2026-10-07T16:00:00.000+0000", status=-1)
+        code, res = sync(fake, "close", [todo(title="甲", dida_task_id=tid, action="complete")])
+        self.assertEqual((res[0]["result"], fake.tasks[tid]["status"], fake.writes), ("conflict", -1, []))
+
+    def test_abandoned_task_is_not_mistaken_for_deleted(self):
+        # 2026-10-09 original failure on real DIDA: an abandoned task dropped out of the filter and read as deleted.
+        fake = FakeDida()
+        tid = fake.add("inbox-x", "甲", "2026-10-07T16:00:00.000+0000", status=-1)
+        read = sync(fake, "read", [todo(title="甲", date="2026-10-08", dida_task_id=tid)])[1][0]
+        closed = sync(fake, "close", [todo(title="甲", dida_task_id=tid, action="complete")])[1][0]
+        self.assertEqual((read["deleted"], read["status_text"], closed["result"]), (False, "已放弃", "conflict"))
+
+    def test_missing_task_or_unknown_action_writes_nothing(self):
+        fake = FakeDida()
+        tid = fake.add("inbox-x", "甲", "2026-10-07T16:00:00.000+0000")
+        code, res = sync(fake, "close", [todo(title="丁", dida_task_id="gone", action="complete"),
+                                         todo(record_id="r2", title="甲", dida_task_id=tid, action="delete")])
+        self.assertEqual((code, [r["result"] for r in res], fake.writes), (1, ["missing", "error"], []))
 
 
 class PrivacyScan(unittest.TestCase):
@@ -440,6 +505,29 @@ class RuleConsistency(unittest.TestCase):
         # 2026-10-07 original failure: project ideas were suggested for the personal 「将来也许」 list.
         text = self.text("references/planning.md")
         self.assertIn("个人生活类的想法才放「将来也许」", text)
+
+    def test_overdue_tasks_get_a_destination_not_a_silent_status(self):
+        # 2026-10-09: overdue unticked todos get a suggested destination; the agent acts only after 「行」.
+        push = self.text("references/dida-push.md")
+        self.assertIn("### 过期没勾", push)
+        self.assertIn("回「行」", push)
+        self.assertIn("过期没勾", self.text("references/daily-plan.md"))
+        self.assertIn("过期没勾", self.text("references/review.md"))
+        self.assertNotIn("不由 Agent 顺延到明天", self.text("references/review.md"))
+
+    def test_agent_closes_dida_tasks_only_after_confirmation_and_never_deletes(self):
+        # Counter-example kept: deleting DIDA tasks is still out of scope.
+        skill = self.text("SKILL.md")
+        self.assertNotIn("在滴答里勾选、放弃、删除任务", skill)
+        self.assertIn("没经用户回「行」就在滴答里勾选", skill)
+        self.assertRegex(skill, "删除滴答任务")
+        self.assertIn("close", self.text("references/dida-push.md"))
+
+    def test_task_writing_is_tiered_not_one_template(self):
+        # 2026-10-09: the user worried every todo would get the full three-line description.
+        plan = self.text("references/daily-plan.md")
+        for word in ("一看就会", "只写标题", "拍板", "推荐答案", "定了在哪说"):
+            self.assertIn(word, plan)
 
     def test_history_mentions_still_allowed(self):
         # Counter-example: saying the old routes were cancelled is fine and must not trip the checks.
