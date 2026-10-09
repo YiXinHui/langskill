@@ -5,6 +5,7 @@ Usage (JSON on stdin, JSON on stdout; exit 1 if any item failed):
   python3 dida_sync.py push < payload.json
   python3 dida_sync.py read < payload.json
   python3 dida_sync.py untracked < payload.json   # tasks the user added in DIDA, not pushed from the plan
+  python3 dida_sync.py close < payload.json       # complete or abandon tasks, only after the user said 「行」
 
 The CLI must be logged in on this machine; set DIDA_BIN if `dida` is not on PATH.
 Never prints task content or CLI auth output.
@@ -20,6 +21,8 @@ from zoneinfo import ZoneInfo
 STATUS_TEXT = {0: "未完成", 2: "已完成", -1: "已放弃"}
 UPDATABLE = ("title", "date", "priority", "content", "project", "subtasks")
 MAX_SUBTASKS = 3
+SORT_STEP = 65536  # DIDA lists siblings by ascending sortOrder; without it the newest child shows first
+CLOSE_STATUS = {"complete": 2, "abandon": -1}
 
 
 class CliError(Exception):
@@ -70,9 +73,13 @@ def search_ids(runner, title):
 
 def day_tasks(runner, project_id, date, zone):
     # Filter is consistent right after a write, includes finished tasks and skips deleted ones.
-    args = ["task", "filter", "--projects", project_id, "--start-date", due_arg(date, zone),
-            "--end-date", due_arg(date, zone, "23:59:59"), "--status=-1,0,2"]
-    return {t.get("id"): t for t in as_list(cli_json(runner, args))}
+    # The CLI drops abandoned tasks when -1 is listed with other codes, so ask for them separately.
+    found = {}
+    for status in ("--status=0,2", "--status=-1"):
+        args = ["task", "filter", "--projects", project_id, "--start-date", due_arg(date, zone),
+                "--end-date", due_arg(date, zone, "23:59:59"), status]
+        found.update({t.get("id"): t for t in as_list(cli_json(runner, args))})
+    return found
 
 
 def locate(runner, project_id, task_id, fallback_title, zone):
@@ -140,8 +147,9 @@ def write_subtasks(runner, project_id, task_id, subtasks):
         runner(["task", "update", task_id, "--id", task_id, "--project", project_id, "--items", checklist(subtasks)])
         return []
     children = []
-    for sub in subtasks:
-        args = ["task", "create", "--project", project_id, "--parent-id", task_id, "--title", sub["title"]]
+    for index, sub in enumerate(subtasks, 1):
+        args = ["task", "create", "--project", project_id, "--parent-id", task_id, "--title", sub["title"],
+                "--sort-order", str(index * SORT_STEP)]
         if sub.get("subtasks"):
             args += ["--items", checklist(sub["subtasks"])]
         children.append(cli_json(runner, args)["id"])
@@ -163,11 +171,15 @@ def mismatches(runner, task, item, zone, fields, children):
     if "subtasks" in fields and subtasks:
         if not is_nested(subtasks) and len(task.get("items") or []) != len(subtasks):
             bad.append("subtasks")
+        orders = []
         for child_id, sub in zip(children, subtasks):
             child = cli_json(runner, ["task", "get", task["projectId"], child_id])
+            orders.append(child.get("sortOrder"))
             if child.get("parentId") != task["id"] or len(child.get("items") or []) != len(sub.get("subtasks") or []):
                 bad.append("subtasks")
                 break
+        if "subtasks" not in bad and orders != sorted(orders, key=lambda n: n if n is not None else float("inf")):
+            bad.append("subtasks")
     return bad
 
 
@@ -250,6 +262,28 @@ def read_one(runner, project_id, zone, item):
     return out
 
 
+def close_one(runner, project_id, zone, item):
+    """Complete or abandon one task the user has just confirmed; never reopen or override a closed task."""
+    target = CLOSE_STATUS[item["action"]]
+    result = {"record_id": item["record_id"], "dida_task_id": item["dida_task_id"], "action": item["action"]}
+    task, moved, deleted = locate(runner, item.get("project_id") or project_id, item["dida_task_id"], item["title"], zone)
+    if task is None or deleted:
+        return {**result, "result": "missing" if task is None else "deleted"}
+    pid = task["projectId"]
+    if task.get("status") == target:
+        return {**result, "result": "exists", "project_id": pid}
+    if task.get("status") != 0:
+        return {**result, "result": "conflict", "status_text": STATUS_TEXT.get(task.get("status"), str(task.get("status")))}
+    if target == 2:
+        runner(["task", "complete", pid, item["dida_task_id"]])
+    else:
+        runner(["task", "update", item["dida_task_id"], "--id", item["dida_task_id"], "--project", pid, f"--status={target}"])
+    after = cli_json(runner, ["task", "get", pid, item["dida_task_id"]])
+    if after.get("status") != target:
+        return {**result, "result": "readback_mismatch", "fields": ["status"]}
+    return {**result, "result": "completed" if target == 2 else "abandoned", "project_id": pid, "moved": moved}
+
+
 def untracked(runner, payload):
     """Open tasks in the given lists that are not known plan tasks: dated inside the window, or undated but created in it."""
     zone, start, end = payload.get("time_zone", "Asia/Shanghai"), payload["from"], payload["to"]
@@ -276,7 +310,7 @@ def untracked(runner, payload):
 
 
 def main(argv, stdin=sys.stdin, runner=run_cli):
-    if len(argv) != 2 or argv[1] not in ("push", "read", "untracked"):
+    if len(argv) != 2 or argv[1] not in ("push", "read", "untracked", "close"):
         print(__doc__, file=sys.stderr)
         return 2
     payload = json.load(stdin)
@@ -288,7 +322,7 @@ def main(argv, stdin=sys.stdin, runner=run_cli):
             print(json.dumps({"result": "error", "error": short_error(str(err))}, ensure_ascii=False))
             return 1
     project_id, zone = payload["project_id"], payload.get("time_zone", "Asia/Shanghai")
-    handler = push_one if argv[1] == "push" else read_one
+    handler = {"push": push_one, "read": read_one, "close": close_one}[argv[1]]
     results, failed = [], False
     for item in payload["items"]:
         try:
