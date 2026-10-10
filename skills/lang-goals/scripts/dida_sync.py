@@ -262,26 +262,50 @@ def read_one(runner, project_id, zone, item):
     return out
 
 
+def set_status(runner, project_id, task_id, target):
+    if target == 2:
+        runner(["task", "complete", project_id, task_id])
+    else:
+        runner(["task", "update", task_id, "--id", task_id, "--project", project_id, f"--status={target}"])
+    return cli_json(runner, ["task", "get", project_id, task_id]).get("status") == target
+
+
+def close_children(runner, task, target):
+    """Close child tasks still open under a closed parent; leave ones the user already closed."""
+    out = []
+    for child_id in task.get("childIds") or []:
+        child = cli_json(runner, ["task", "get", task["projectId"], child_id])
+        if child.get("status") != 0:
+            continue
+        ok = set_status(runner, task["projectId"], child_id, target)
+        out.append({"dida_task_id": child_id, "title": child.get("title"),
+                    "result": ("completed" if target == 2 else "abandoned") if ok else "readback_mismatch"})
+    return out
+
+
 def close_one(runner, project_id, zone, item):
-    """Complete or abandon one task the user has just confirmed; never reopen or override a closed task."""
+    """Complete or abandon one task the user has just confirmed, plus its open child tasks; never reopen or override a closed task."""
     target = CLOSE_STATUS[item["action"]]
     result = {"record_id": item["record_id"], "dida_task_id": item["dida_task_id"], "action": item["action"]}
     task, moved, deleted = locate(runner, item.get("project_id") or project_id, item["dida_task_id"], item["title"], zone)
     if task is None or deleted:
         return {**result, "result": "missing" if task is None else "deleted"}
     pid = task["projectId"]
-    if task.get("status") == target:
-        return {**result, "result": "exists", "project_id": pid}
-    if task.get("status") != 0:
+    if task.get("status") not in (0, target):
         return {**result, "result": "conflict", "status_text": STATUS_TEXT.get(task.get("status"), str(task.get("status")))}
-    if target == 2:
-        runner(["task", "complete", pid, item["dida_task_id"]])
+    if task.get("status") == target:
+        out = {**result, "result": "exists", "project_id": pid}
+    elif set_status(runner, pid, item["dida_task_id"], target):
+        out = {**result, "result": "completed" if target == 2 else "abandoned", "project_id": pid, "moved": moved}
     else:
-        runner(["task", "update", item["dida_task_id"], "--id", item["dida_task_id"], "--project", pid, f"--status={target}"])
-    after = cli_json(runner, ["task", "get", pid, item["dida_task_id"]])
-    if after.get("status") != target:
         return {**result, "result": "readback_mismatch", "fields": ["status"]}
-    return {**result, "result": "completed" if target == 2 else "abandoned", "project_id": pid, "moved": moved}
+    children = close_children(runner, task, target)
+    if children:
+        out["children"] = children
+        if any(c["result"] == "readback_mismatch" for c in children):
+            out["result"] = "readback_mismatch"
+            out["fields"] = ["children"]
+    return out
 
 
 def untracked(runner, payload):
