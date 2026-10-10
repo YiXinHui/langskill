@@ -427,6 +427,35 @@ class DidaClose(unittest.TestCase):
         closed = sync(fake, "close", [todo(title="甲", dida_task_id=tid, action="complete")])[1][0]
         self.assertEqual((read["deleted"], read["status_text"], closed["result"]), (False, "已放弃", "conflict"))
 
+    def test_closing_a_parent_closes_its_open_children(self):
+        # 2026-10-10 original failure: the parent was completed, its two open child tasks stayed in 「今天」.
+        fake = FakeDida()
+        subs = [{"title": "看初稿"}, {"title": "拍板", "subtasks": [{"title": "甲"}]}, {"title": "说定了"}]
+        pid = sync(fake, "push", [todo(subtasks=subs)])[1][0]["dida_task_id"]
+        kids = fake.tasks[pid]["childIds"]
+        fake.tasks[kids[2]]["status"] = 2  # the user ticked one child already
+        code, res = sync(fake, "close", [todo(dida_task_id=pid, action="complete")])
+        self.assertEqual((code, res[0]["result"], [fake.tasks[k]["status"] for k in kids]), (0, "completed", [2, 2, 2]))
+        self.assertEqual([c["title"] for c in res[0]["children"]], ["看初稿", "拍板"])
+
+    def test_parent_already_closed_still_sweeps_open_children(self):
+        # Adjacent case: parent ticked earlier (result exists), children still open.
+        fake = FakeDida()
+        pid = sync(fake, "push", [todo(subtasks=[{"title": "甲", "subtasks": [{"title": "甲1"}]}, {"title": "乙"}])])[1][0]["dida_task_id"]
+        fake.tasks[pid]["status"] = 2
+        code, res = sync(fake, "close", [todo(dida_task_id=pid, action="complete")])
+        self.assertEqual((res[0]["result"], len(res[0]["children"])), ("exists", 2))
+        self.assertTrue(all(fake.tasks[k]["status"] == 2 for k in fake.tasks[pid]["childIds"]))
+
+    def test_child_the_user_abandoned_is_not_flipped(self):
+        # Counter-example: a child the user abandoned stays abandoned when the parent is completed.
+        fake = FakeDida()
+        pid = sync(fake, "push", [todo(subtasks=[{"title": "甲", "subtasks": [{"title": "甲1"}]}, {"title": "乙"}])])[1][0]["dida_task_id"]
+        kids = fake.tasks[pid]["childIds"]
+        fake.tasks[kids[0]]["status"] = -1
+        res = sync(fake, "close", [todo(dida_task_id=pid, action="complete")])[1]
+        self.assertEqual(([fake.tasks[k]["status"] for k in kids], [c["title"] for c in res[0]["children"]]), ([-1, 2], ["乙"]))
+
     def test_missing_task_or_unknown_action_writes_nothing(self):
         fake = FakeDida()
         tid = fake.add("inbox-x", "甲", "2026-10-07T16:00:00.000+0000")

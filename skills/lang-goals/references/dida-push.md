@@ -74,7 +74,7 @@
 
 - 「做了没勾」只凭证据推荐，交付物对不上（比如只有 flomo 里的思考）就不推荐这一项。
 - 挪过的写进前一天日复盘的「偏差与原因」，执行台不另留一条「未完成」。
-- `close` 的输入：`{"project_id", "time_zone", "items": [{"record_id", "dida_task_id", "title", "action"}]}`。结果为 `completed`／`abandoned` 时按上表改执行台并回读；`exists` 是已经是目标状态；`conflict` 是用户已在滴答里关了另一种状态，按滴答为准同步，不翻转；`missing`／`deleted` 与推送同样处理。
+- `close` 的输入：`{"project_id", "time_zone", "items": [{"record_id", "dida_task_id", "title", "action"}]}`。结果为 `completed`／`abandoned` 时按上表改执行台并回读；`exists` 是已经是目标状态；`conflict` 是用户已在滴答里关了另一种状态，按滴答为准同步，不翻转；父任务关掉（或已经是目标状态）时，它下面还没关的子任务按同样方式关掉，结果列在 `children` 里一并汇报，用户已关的子任务不动；`missing`／`deleted` 与推送同样处理。
 - 周、月的「未完成」照旧只在周期结束后使用。
 
 ## 验收
