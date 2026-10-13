@@ -558,6 +558,26 @@ class RuleConsistency(unittest.TestCase):
         for word in ("一看就会", "只写标题", "拍板", "推荐答案", "定了在哪说"):
             self.assertIn(word, plan)
 
+    def test_company_todos_stay_in_company_workspace(self):
+        # 2026-10-12: meeting-assigned company todos stay in the company workspace; execution desk only keeps the user's own action.
+        company_rule = "公司会议派给用户的待办以集成工作台「待办」为准"
+        ai_rule = "能由 AI 直接完成的部分不写成用户的待办"
+        for n in ["references/daily-plan.md", "references/planning.md"]:
+            text = self.text(n)
+            self.assertEqual(text.count(company_rule), 1, n)
+            self.assertEqual(text.count(ai_rule), 1, n)
+        for n in ["SKILL.md", "references/review.md", "references/schema.md"]:
+            text = self.text(n)
+            self.assertNotIn(company_rule, text, n)
+            self.assertNotIn(ai_rule, text, n)
+
+    def test_specialist_modules_delegate_content(self):
+        # 2026-10-13: fitness (and future specialist modules) are planned by their own Skill; lang-goals only records goals and reads progress.
+        rule = "计划内容由对应的 Skill 产出"
+        self.assertEqual(self.text("SKILL.md").count(rule), 1)
+        for n in ["references/planning.md", "references/daily-plan.md", "references/review.md"]:
+            self.assertNotIn(rule, self.text(n), n)
+
     def test_history_mentions_still_allowed(self):
         # Counter-example: saying the old routes were cancelled is fine and must not trip the checks.
         self.assertIn("已取消", self.text("SKILL.md"))
