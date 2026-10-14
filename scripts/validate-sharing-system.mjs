@@ -20,7 +20,10 @@ async function main() {
     return;
   }
 
+  const publicRoles = new Set(["public-product", "public-core", "distribution"]);
+  const privateRoles = new Set(["private-core"]);
   const entries = new Map(catalog.skills.map((skill) => [skill.id, skill]));
+  const entriesByPath = new Map(catalog.skills.map((skill) => [skill.path, skill]));
   if (entries.size !== catalog.skills.length) fail("duplicate skill id in catalog");
 
   const actual = (await fs.readdir(path.join(root, "skills"), { withFileTypes: true }))
@@ -29,7 +32,13 @@ async function main() {
     .sort();
 
   for (const dir of actual) {
-    if (dir !== "lang" && !/^lang-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(dir)) {
+    const entry = entriesByPath.get(`skills/${dir}`);
+    if (!entry) {
+      fail(`uncatalogued skill: ${dir}`);
+      continue;
+    }
+    const isPrivate = privateRoles.has(entry.role);
+    if (!isPrivate && dir !== "lang" && !/^lang-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(dir)) {
       fail(`public skill id must be English and use lang-* format: ${dir}`);
     }
     const skillPath = path.join(root, "skills", dir, "SKILL.md");
@@ -39,13 +48,12 @@ async function main() {
       fail(`missing SKILL.md: skills/${dir}`);
       continue;
     }
-    if (![...entries.values()].some((entry) => entry.path === `skills/${dir}`)) {
-      fail(`uncatalogued public skill: ${dir}`);
-    }
   }
 
   for (const entry of entries.values()) {
-    if (!new Set(["public-product", "public-core", "distribution"]).has(entry.role)) {
+    const isPublic = publicRoles.has(entry.role);
+    const isPrivate = privateRoles.has(entry.role);
+    if (!isPublic && !isPrivate) {
       fail(`invalid role for ${entry.id}: ${entry.role}`);
     }
     const skillMd = path.join(root, entry.path, "SKILL.md");
@@ -54,7 +62,10 @@ async function main() {
       fail(`invalid frontmatter: ${entry.path}/SKILL.md`);
     }
     const frontmatterName = content.match(/^name:\s*(.+)$/m)?.[1]?.trim();
-    if (frontmatterName !== entry.id || entry.path !== `skills/${entry.id}`) {
+    if (entry.path !== `skills/${entry.id}`) {
+      fail(`skill id and directory must match: ${entry.id}`);
+    }
+    if (isPublic && frontmatterName !== entry.id) {
       fail(`skill id, directory and frontmatter name must match: ${entry.id}`);
     }
   }
@@ -159,7 +170,7 @@ async function main() {
   }
 
   if (!process.exitCode) {
-    console.log(`OK: ${actual.length} public skills are catalogued and structurally valid`);
+    console.log(`OK: ${actual.length} skills are catalogued and structurally valid`);
   }
 }
 

@@ -507,6 +507,20 @@ class RuleConsistency(unittest.TestCase):
         # Original failure: planning.md still said the BaseApp board was "未被用户取消" after D11.
         self.assertNotIn("未被用户取消", self.text("references/planning.md"))
 
+    def test_deleted_miaoda_plan_not_cited(self):
+        # 2026-10-13: the v2 Miaoda plan's PRD was deleted, but SKILL.md, planning.md and schema.md still cited it as the next entry.
+        hits = [n for n in self.FILES if "妙搭" in self.text(n)]
+        self.assertEqual(hits, [])
+
+    def test_schema_lists_theme_word_and_goal_type(self):
+        # 2026-10-13: the grid's centre reads the theme word, and monthly goals are split into projects and habits.
+        schema = self.text("references/schema.md")
+        self.assertIn("年度主题词", schema)
+        self.assertIn("类型（单选：项目／习惯）", schema)
+        self.assertIn("类型（项目还是习惯", self.text("references/planning.md"))
+        # Counter-example: the theme word is not a ninth dimension, so the default eight dimensions stay unchanged.
+        self.assertIn("身体健康、财务理财、家庭生活、工作事业、学习成长、人际社交、体验突破、休闲娱乐", schema)
+
     def test_dida_is_no_longer_read_only_in_entry(self):
         # 2026-10-06: daily todos are pushed after confirmation; status stays read-only.
         skill = self.text("SKILL.md")
