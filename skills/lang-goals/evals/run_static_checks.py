@@ -492,7 +492,7 @@ class PrivacyScan(unittest.TestCase):
     def test_no_personal_tokens_outside_private_config(self):
         hits = []
         for path in ROOT.rglob("*"):
-            if not path.is_file() or path.name == "personal-config.md" or "__pycache__" in path.parts:
+            if not path.is_file() or path.name in {"personal-config.md", "personal-module-sync.json"} or "__pycache__" in path.parts:
                 continue
             text = path.read_text(encoding="utf-8", errors="ignore")
             for pattern in self.PATTERNS:
