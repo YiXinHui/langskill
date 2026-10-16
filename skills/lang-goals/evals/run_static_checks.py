@@ -135,6 +135,27 @@ class PlanChecks(unittest.TestCase):
         bad = {"level": "day", "period": "2026-10-07", "items": [day("写完提纲", dida_list="")]}
         self.assertTrue(any("dida_list" in e for e in vp.validate(bad)))
 
+    def test_module_day_uses_its_real_source_instead_of_a_personal_parent(self):
+        action = day("🐸课程彩排", parent="rec-module-todo", parent_type="模块待办",
+                     module="公司CEO", source_url="https://example.com/base/todos?record=rec-module-todo",
+                     frog=False, frog_pick="手头最重要", dida_list="公司")
+        plan = {"level": "day", "period": "2026-10-16", "items": [action]}
+        self.assertEqual(vp.validate(plan), [])
+        for key in ("parent", "module", "source_url"):
+            broken = {**action, key: ""}
+            self.assertTrue(any(key in e for e in vp.validate({**plan, "items": [broken]})))
+
+    def test_module_and_personal_frogs_share_the_same_daily_limit(self):
+        actions = [day("🐸模块" + x, parent="rec-module-" + x, parent_type="模块待办",
+                       module="公司CEO", source_url="https://example.com/todo/" + x, frog=True)
+                   for x in "甲乙丙"]
+        plan = {"level": "day", "period": "2026-10-16", "items": actions + [day("🐸个人写作", frog=True)]}
+        self.assertTrue(any("333 limit" in e for e in vp.validate(plan)))
+
+    def test_module_path_does_not_allow_an_unlinked_personal_action(self):
+        plan = {"level": "day", "period": "2026-10-16", "items": [day("个人写作", parent="")]}
+        self.assertTrue(any("parent" in e for e in vp.validate(plan)))
+
     def test_old_status_rejected(self):
         plan = {"level": "week", "period": "2026-10-05", "items": [item("甲", status="待核")]}
         self.assertTrue(any("status" in e for e in vp.validate(plan)))
