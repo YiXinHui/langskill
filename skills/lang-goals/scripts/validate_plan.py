@@ -102,10 +102,15 @@ def check_day_frog(item, label):
 
 
 def check_day_item(item, label):
-    """A todo hangs on a weekly plan, or directly on a monthly goal when it is a one-off."""
+    """Personal todos use goal parents; module actions keep their canonical source."""
     errors = []
-    if item.get("parent_type") not in ("周计划", "月目标"):
-        errors.append(f"{label}: parent_type must be 周计划 (normal) or 月目标 (one-off)")
+    if item.get("parent_type") not in ("周计划", "月目标", "模块待办"):
+        errors.append(f"{label}: parent_type must be 周计划 (normal), 月目标 (one-off) or 模块待办")
+    if item.get("parent_type") == "模块待办":
+        if not has_text(item, "module"):
+            errors.append(f"{label}: module is required for 模块待办")
+        if not re.fullmatch(r"https?://[^\s/]+/\S+", str(item.get("source_url") or "")):
+            errors.append(f"{label}: source_url must be the module record's full URL")
     errors.extend(check_day_frog(item, label))
     if not has_text(item, "dida_list"):
         errors.append(f"{label}: dida_list is required (the parent monthly goal's 滴答清单, or 不推)")
