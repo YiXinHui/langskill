@@ -2,7 +2,7 @@
 """Push confirmed daily todos to DIDA and read their state back, via the official `dida` CLI.
 
 Usage (JSON on stdin, JSON on stdout; exit 1 if any item failed):
-  python3 dida_sync.py push < payload.json
+  python3 dida_sync.py push < payload.json       # parent_dida_task_id: today's step under a long-term main task
   python3 dida_sync.py read < payload.json
   python3 dida_sync.py untracked < payload.json   # tasks the user added in DIDA, not pushed from the plan
   python3 dida_sync.py close < payload.json       # complete or abandon tasks, only after the user said 「行」
@@ -18,8 +18,10 @@ import subprocess
 import sys
 from zoneinfo import ZoneInfo
 
+from schedule import datetime_value, schedule
+
 STATUS_TEXT = {0: "未完成", 2: "已完成", -1: "已放弃"}
-UPDATABLE = ("title", "date", "priority", "content", "project", "subtasks")
+UPDATABLE = ("title", "date", "time", "end_time", "priority", "content", "project", "subtasks")
 MAX_SUBTASKS = 3
 SORT_STEP = 65536  # DIDA lists siblings by ascending sortOrder; without it the newest child shows first
 CLOSE_STATUS = {"complete": 2, "abandon": -1}
@@ -107,10 +109,13 @@ def task_args(item, zone, fields):
     args = []
     if "title" in fields:
         args += ["--title", item["title"]]
-    if "date" in fields:
-        # Set start too: user-made tasks keep their own start date, and DIDA then shows a multi-day span.
-        day = due_arg(item["date"], zone)
-        args += ["--all-day", "--start-date", day, "--due-date", day, "--time-zone", zone]
+    if {"date", "time", "end_time"}.intersection(fields):
+        start, end, all_day = schedule(item, zone)
+        # Set both endpoints, including when rescheduling an existing task.
+        if all_day:
+            args += ["--all-day"]
+        args += ["--start-date", start.strftime("%Y-%m-%dT%H:%M:%S%z"),
+                 "--due-date", end.strftime("%Y-%m-%dT%H:%M:%S%z"), "--time-zone", zone]
     if "priority" in fields:
         args += ["--priority", str(item.get("priority", 0))]
     if "content" in fields and item.get("content"):
@@ -129,6 +134,31 @@ def check_subtasks(subtasks, depth=1):
         if nested and depth >= 2:
             raise ValueError("subtasks: at most two levels")
         check_subtasks(nested, depth + 1)
+
+
+# DIDA turns "#" followed by text into a tag (2026-10-26: "#11、#43" became three tags).
+# Markdown headings ("## 做什么") pass; "C#语言" is blocked too, since DIDA's exact rule is unverified.
+# URLs are skipped so section anchors in links still work.
+HASH_TAG = re.compile(r"#+(?=[^\s#])")
+URL = re.compile(r"https?://[^\s)\]）】」>]+")
+
+
+def check_no_tags(item, fields):
+    """Refuse to write text DIDA would parse as tags; numbers go without #, like 「教程 11」."""
+    texts = []
+    if "title" in fields:
+        texts.append(("title", item.get("title")))
+    if "content" in fields:
+        texts.append(("content", item.get("content")))
+    if "subtasks" in fields:
+        for sub in item.get("subtasks") or []:
+            texts.append(("subtasks", sub.get("title")))
+            texts += [("subtasks", nested.get("title")) for nested in sub.get("subtasks") or []]
+    for name, text in texts:
+        hit = HASH_TAG.search(URL.sub("", str(text or "")))
+        if hit:
+            word = re.match(r"#+\S{0,8}", hit.string[hit.start():]).group()
+            raise ValueError(f"{name}: 「{word}」 would become a DIDA tag; drop the #, e.g. write 「教程 11」")
 
 
 def checklist(subtasks):
@@ -161,8 +191,17 @@ def mismatches(runner, task, item, zone, fields, children):
     if "title" in fields and task.get("title") != item["title"]:
         bad.append("title")
     task_zone = task.get("timeZone") or zone
-    if "date" in fields and {local_date(task.get("dueDate"), task_zone), local_date(task.get("startDate"), task_zone)} != {item["date"]}:
-        bad.append("date")
+    if {"date", "time", "end_time"}.intersection(fields):
+        start, end, all_day = schedule(item, zone)
+        if all_day:
+            if {local_date(task.get("dueDate"), task_zone), local_date(task.get("startDate"), task_zone)} != {item["date"]}:
+                bad.append("date")
+        else:
+            for key, expected in (("startDate", start), ("dueDate", end)):
+                if not task.get(key) or datetime_value(task[key], task_zone) != expected:
+                    bad.append("time" if key == "startDate" else "end_time")
+        if task.get("isAllDay") is not all_day:
+            bad.append("isAllDay")
     if "priority" in fields and task.get("priority") != item.get("priority", 0):
         bad.append("priority")
     if "project" in fields and task.get("projectId") != item["project_id"]:
@@ -183,11 +222,78 @@ def mismatches(runner, task, item, zone, fields, children):
     return bad
 
 
+def step_parent(runner, item, zone):
+    """The open long-term main task that today's step goes under, or a result explaining why not."""
+    parent_id = item["parent_dida_task_id"]
+    if is_nested(item.get("subtasks") or []):
+        raise ValueError("a step under a main task takes a flat checklist only")
+    parent, _, deleted = locate(runner, item["project_id"], parent_id, item.get("parent_title") or item["title"], zone)
+    if parent is None or deleted:
+        return None, "parent_missing" if parent is None else "parent_deleted"
+    if parent.get("status") != 0:
+        return None, "parent_closed"  # never reopen it here; the user decides
+    return parent, None
+
+
+def children_of(runner, parent):
+    return [cli_json(runner, ["task", "get", parent["projectId"], c]) for c in parent.get("childIds") or []]
+
+
+def existing_step(children, item, zone):
+    """A child of the main task with the same title and day: retries must not add a second one."""
+    for child in children:
+        child_day = local_date(child.get("startDate") or child.get("dueDate"), child.get("timeZone") or zone)
+        if child.get("title") == item["title"] and child_day == item["date"]:
+            return child
+    return None
+
+
+def next_sort_order(children):
+    return max([c.get("sortOrder") for c in children if isinstance(c.get("sortOrder"), int)] + [0]) + SORT_STEP
+
+
+def push_step(runner, zone, item, result):
+    """Create today's step as a child task of the long-term main task, which keeps its title and stays open."""
+    parent, problem = step_parent(runner, item, zone)
+    if problem:
+        return {**result, "result": problem, "parent_dida_task_id": item["parent_dida_task_id"]}
+    pid, parent_id = parent["projectId"], parent["id"]
+    children = children_of(runner, parent)
+    found = existing_step(children, item, zone)
+    if found:
+        return {**result, "result": "matched", "dida_task_id": found["id"], "project_id": pid,
+                "parent_dida_task_id": parent_id}
+    if sum(1 for c in children if c.get("status") == 0) >= MAX_SUBTASKS:
+        return {**result, "result": "too_many_steps", "parent_dida_task_id": parent_id}
+    fields = list(UPDATABLE)
+    args = ["task", "create", "--project", pid, "--parent-id", parent_id,
+            "--sort-order", str(next_sort_order(children)), *task_args(item, zone, fields)]
+    if item.get("subtasks"):
+        args += ["--items", checklist(item["subtasks"])]
+    task_id = cli_json(runner, args)["id"]
+    task = cli_json(runner, ["task", "get", pid, task_id])
+    after = cli_json(runner, ["task", "get", pid, parent_id])
+    out = {**result, "dida_task_id": task_id, "project_id": pid, "parent_dida_task_id": parent_id}
+    bad = mismatches(runner, task, {**item, "project_id": pid}, zone, fields, [])
+    if task.get("parentId") != parent_id or after.get("status") != 0 or after.get("title") != parent.get("title"):
+        bad.append("parent")
+    if bad:
+        return {**out, "result": "readback_mismatch", "fields": sorted(set(bad))}
+    return {**out, "result": "created"}
+
+
 def push_one(runner, default_project, zone, item):
     item = {**item, "project_id": item.get("project_id") or default_project}
     check_subtasks(item.get("subtasks") or [])
+    schedule(item, zone)  # Reject malformed or reversed time ranges before any write.
     result = {"record_id": item["record_id"]}
     task_id, notes = item.get("dida_task_id"), []
+    check_no_tags(item, item.get("fields", []) if task_id else UPDATABLE)
+    if item.get("parent_dida_task_id"):
+        if task_id == item["parent_dida_task_id"]:
+            raise ValueError("today's step must not reuse the main task's DIDA ID")
+        if not task_id:
+            return push_step(runner, zone, item, result)
     if task_id:
         task, moved, deleted = locate(runner, item["project_id"], task_id, item.get("old_title") or item["title"], zone)
         if task is None or deleted:
@@ -212,8 +318,19 @@ def push_one(runner, default_project, zone, item):
         action = "updated"
     else:
         fields = list(UPDATABLE)
-        for hit in day_tasks(runner, item["project_id"], item["date"], zone).values():
-            if hit.get("title") == item["title"]:
+        candidates = day_tasks(runner, item["project_id"], item["date"], zone)
+        _, end, all_day = schedule(item, zone)
+        if not all_day and end.date().isoformat() != item["date"]:
+            # Filters may index by dueDate; an overnight task ends outside its start day.
+            candidates.update(day_tasks(runner, item["project_id"], end.date().isoformat(), zone))
+        for hit in candidates.values():
+            hit_day = local_date(hit.get("startDate") or hit.get("dueDate"), zone)
+            if hit.get("title") == item["title"] and (all_day or hit_day == item["date"]):
+                if item.get("time"):
+                    existing = cli_json(runner, ["task", "get", hit["projectId"], hit["id"]])
+                    if mismatches(runner, existing, item, zone, ["date"], []):
+                        return {**result, "result": "schedule_conflict", "dida_task_id": hit["id"],
+                                "project_id": hit["projectId"]}
                 return {**result, "result": "matched", "dida_task_id": hit["id"], "project_id": hit["projectId"]}
         pid = item["project_id"]
         subtasks = item.get("subtasks") or []
@@ -242,6 +359,12 @@ def read_one(runner, project_id, zone, item):
     task_zone = task.get("timeZone") or zone
     status = task.get("status")
     due = local_date(task.get("dueDate"), task_zone)
+    timed = task.get("isAllDay") is False and bool(task.get("startDate"))
+    start_time = datetime_value(task["startDate"], task_zone).isoformat() if timed else None
+    end_time = datetime_value(task["dueDate"], task_zone).isoformat() if timed and task.get("dueDate") else None
+    start_date = local_date(task.get("startDate"), task_zone) if timed else due
+    expected_time = datetime_value(item["time"], task_zone).isoformat() if item.get("time") else None
+    expected_end = datetime_value(item["end_time"], task_zone).isoformat() if item.get("end_time") else expected_time
     out = {
         **result,
         "found": True,
@@ -252,7 +375,11 @@ def read_one(runner, project_id, zone, item):
         "status_text": STATUS_TEXT.get(status, str(status)),
         "due_date": due,
         "completed_date": local_date(task.get("completedTime"), task_zone),
-        "date_changed": due != item.get("date"),
+        "start_date": start_date,
+        "time": start_time,
+        "end_time": end_time,
+        "time_changed": (start_time, end_time) != (expected_time, expected_end),
+        "date_changed": start_date != item.get("date"),
         "title_changed": task.get("title") != item["title"],
         "checklist_done": sum(1 for i in task.get("items") or [] if i.get("status") in (1, 2)),
         "checklist_total": len(task.get("items") or []),
@@ -354,7 +481,7 @@ def main(argv, stdin=sys.stdin, runner=run_cli):
         except (CliError, KeyError, ValueError) as err:
             failed = True
             results.append({"record_id": item.get("record_id"), "result": "error", "error": short_error(str(err))})
-    failed = failed or any(r.get("result") == "readback_mismatch" for r in results)
+    failed = failed or any(r.get("result") in ("readback_mismatch", "schedule_conflict") for r in results)
     print(json.dumps(results, ensure_ascii=False, indent=2))
     return 1 if failed else 0
 

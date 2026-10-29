@@ -7,6 +7,8 @@ import json
 import re
 import sys
 
+from schedule import schedule
+
 STATUSES = {"未开始", "进行中", "已完成", "未完成", "取消"}
 MAX_FROGS = 3
 SOFT_LIMITS = {"week": 5, "day": 5}
@@ -101,9 +103,29 @@ def check_day_frog(item, label):
     return []
 
 
+def bare_title(value):
+    return str(value or "").strip().removeprefix(FROG).strip()
+
+
+def check_step(item, label):
+    """Today's step of a long-term task: a new subtask, never the main task renamed or reused."""
+    main = item.get("parent_task")
+    if main is None:
+        return []
+    if not isinstance(main, dict) or not has_text(main, "title"):
+        return [f"{label}: parent_task needs the long-term main task's original title"]
+    errors = []
+    if bare_title(item.get("title")) == bare_title(main["title"]):
+        errors.append(f"{label}: today's step reuses the main task title; name the step and leave the main task as is")
+    for key in ("dida_task_id", "record_id"):
+        if has_text(item, key) and item[key] == main.get(key):
+            errors.append(f"{label}: today's step reuses the main task's {key}; ticking it would close the main task")
+    return errors
+
+
 def check_day_item(item, label):
     """Personal todos use goal parents; module actions keep their canonical source."""
-    errors = []
+    errors = check_step(item, label)
     if item.get("parent_type") not in ("周计划", "月目标", "模块待办"):
         errors.append(f"{label}: parent_type must be 周计划 (normal), 月目标 (one-off) or 模块待办")
     if item.get("parent_type") == "模块待办":
@@ -117,7 +139,7 @@ def check_day_item(item, label):
     return errors
 
 
-def check_item(level, period, item, label):
+def check_item(level, period, item, label, zone="Asia/Shanghai"):
     if not isinstance(item, dict):
         return [f"{label}: must be an object"]
     errors = []
@@ -135,6 +157,10 @@ def check_item(level, period, item, label):
         errors.append(f"{label}: completed item requires actual_result")
     if level == "day":
         errors.extend(check_day_item(item, label))
+        try:
+            schedule({**item, "date": period}, zone)
+        except ValueError as exc:
+            errors.append(f"{label}: {exc}")
     elif "frog" in item:
         errors.extend(check_frog_title(item, label))
     if level == "month" and "due" in item:
@@ -165,7 +191,7 @@ def validate(plan):
     if len(set(titles)) != len(titles):
         errors.append("duplicate titles in this period")
     for index, item in enumerate(items, 1):
-        errors.extend(check_item(level, period, item, f"item {index}"))
+        errors.extend(check_item(level, period, item, f"item {index}", plan.get("time_zone", "Asia/Shanghai")))
     return errors
 
 

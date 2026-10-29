@@ -13,7 +13,9 @@ import sys
 from collections import defaultdict
 from urllib.parse import parse_qs, urlsplit
 
-FIELDS = {"title": "待办", "date": "日期", "status": "状态", "task_id": "滴答任务ID"}
+from schedule import datetime_value, schedule
+
+FIELDS = {"title": "待办", "date": "日期", "time": "时间", "status": "状态", "task_id": "滴答任务ID"}
 SOURCE_FIELD = "来源记录"
 STATUSES = {"未开始", "进行中", "已完成", "未完成", "取消"}
 
@@ -87,7 +89,7 @@ def get_rows(base, table, ids, fields, runner):
     return rows
 
 
-def desired_values(source, module, current):
+def desired_values(source, module, current, zone="Asia/Shanghai"):
     f = module["fields"]
     title = str(source[f["title"]] or "").strip()
     status = source[f["status"]]
@@ -99,12 +101,34 @@ def desired_values(source, module, current):
     task_id = source[f["task_id"]] or None
     if current.get(FIELDS["task_id"]) and not task_id:
         raise ValueError("source reminder ID is missing; preserve the existing binding")
-    return {FIELDS["title"]: title.splitlines()[0].strip(), FIELDS["date"]: source[f["date"]] or None,
+    start = source[f["start"]] if f.get("start") else None
+    end = source[f["end"]] if f.get("end") else None
+    stamp = datetime_value(start, zone) if start else None
+    if stamp:
+        schedule({"date": stamp.date().isoformat(), "time": start, "end_time": end}, zone)
+    elif end:
+        raise ValueError("source end time requires a start time; preserve the reference")
+    date = source[f["date"]] or (stamp.date().isoformat() if stamp else None)
+    return {FIELDS["title"]: title.splitlines()[0].strip(), FIELDS["date"]: date,
+            FIELDS["time"]: stamp.isoformat() if stamp else None,
             FIELDS["status"]: [mapped], FIELDS["task_id"]: task_id}
+
+
+def same_value(field, actual, expected, zone):
+    if not actual or not expected:
+        return (actual or None) == (expected or None)
+    if field == FIELDS["time"]:
+        return datetime_value(actual, zone) == datetime_value(expected, zone)
+    if field == FIELDS["date"]:
+        def day(value):
+            return value if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value) else datetime_value(value, zone).date().isoformat()
+        return day(actual) == day(expected)
+    return actual == expected
 
 
 def sync(config, apply=False, runner=cli):
     target = config["target"]
+    zone = config.get("time_zone", "Asia/Shanghai")
     modules = {}
     for m in config["modules"]:
         key = (m["host"], m["base_token"], m["table_id"])
@@ -132,8 +156,8 @@ def sync(config, apply=False, runner=cli):
     # Validate all sources before any write. A failed/missing source never clears a mirror.
     changes = {}
     for rid, key in refs.items():
-        wanted = desired_values(sources[key], modules[key[:3]], rows[rid])
-        delta = {f: value for f, value in wanted.items() if (rows[rid].get(f) or None) != value}
+        wanted = desired_values(sources[key], modules[key[:3]], rows[rid], zone)
+        delta = {f: value for f, value in wanted.items() if not same_value(f, rows[rid].get(f), value, zone)}
         if delta:
             changes[rid] = delta
     if apply:
@@ -143,7 +167,7 @@ def sync(config, apply=False, runner=cli):
             runner(["+record-batch-update", "--base-token", target["base_token"], "--table-id", target["table_id"],
                     "--json", json.dumps({"update_records": {rid: changes[rid] for rid in chunk}}, ensure_ascii=False)])
             back = get_rows(target["base_token"], target["table_id"], chunk, list(FIELDS.values()), runner)
-            if any((back[rid].get(f) or None) != v for rid in chunk for f, v in changes[rid].items()):
+            if any(not same_value(f, back[rid].get(f), v, zone) for rid in chunk for f, v in changes[rid].items()):
                 raise ValueError("personal write readback mismatch; report partial completion, do not recreate rows")
     return {"ok": True, "applied": apply, "references": len(refs), "changed": len(changes),
             "changes": [{"record_id": rid, "fields": list(delta)} for rid, delta in changes.items()]}
