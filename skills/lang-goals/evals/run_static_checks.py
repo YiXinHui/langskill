@@ -6,6 +6,9 @@ import json
 from pathlib import Path
 import re
 import unittest
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("validate_plan", ROOT / "scripts/validate_plan.py")
@@ -164,6 +167,30 @@ class PlanChecks(unittest.TestCase):
         plan = {"level": "day", "period": "2026-10-07", "items": [day("甲"), day("甲")]}
         self.assertIn("duplicate titles in this period", vp.validate(plan))
 
+    MAIN = {"title": "🐸甲产品陪跑：梳理与手册", "dida_task_id": "t-main", "record_id": "rec-main"}
+
+    def test_long_term_step_keeps_the_main_task(self):
+        # 2026-10-26 original failure: the main task was renamed to today's step; ticking it closed the main task.
+        renamed = day("🐸甲产品陪跑：梳理与手册", frog=True, parent_task=self.MAIN)
+        reused = day("🐸读 v0.1 写评论", frog=True, parent_task=self.MAIN, dida_task_id="t-main")
+        same_row = day("🐸读 v0.1 写评论", frog=True, parent_task=self.MAIN, record_id="rec-main")
+        for bad, key in ((renamed, "title"), (reused, "dida_task_id"), (same_row, "record_id")):
+            errors = vp.validate({"level": "day", "period": "2026-10-26", "items": [bad]})
+            self.assertTrue(any(key in e and "main task" in e for e in errors), (key, errors))
+
+    def test_long_term_step_as_its_own_subtask_passes(self):
+        # Adjacent case: a step decided up front and a next step generated after the last one finished.
+        for title in ("🐸建内部项目", "🐸读 v0.2 定剩下的项"):
+            step = day(title, frog=True, parent_task=self.MAIN, dida_task_id="t-step")
+            self.assertEqual(vp.validate({"level": "day", "period": "2026-10-26", "items": [step]}), [])
+
+    def test_long_term_step_needs_the_main_title_and_plain_todos_need_none(self):
+        # Counter-example: a one-off todo has no main task; a parent_task without its title is rejected.
+        self.assertEqual(vp.validate({"level": "day", "period": "2026-10-26", "items": [day("约人吃饭")]}), [])
+        broken = day("读 v0.1 写评论", parent_task={"dida_task_id": "t-main"})
+        self.assertTrue(any("parent_task" in e for e in vp.validate(
+            {"level": "day", "period": "2026-10-26", "items": [broken]})))
+
 
 class FakeDida:
     """In-memory stand-in for the dida CLI; records every write."""
@@ -176,7 +203,7 @@ class FakeDida:
         tid = f"t{self.next_id}"
         self.next_id += 1
         self.tasks[tid] = {"id": tid, "projectId": project, "title": title, "dueDate": due_utc,
-                           "timeZone": "Asia/Shanghai", "priority": 0, "status": status, "completedTime": completed}
+                           "timeZone": "Asia/Shanghai", "isAllDay": True, "priority": 0, "status": status, "completedTime": completed}
         return tid
 
     def opt(self, args, name):
@@ -189,6 +216,8 @@ class FakeDida:
             if flag in args:
                 local = ds.dt.datetime.strptime(self.opt(args, flag), "%Y-%m-%dT%H:%M:%S%z")
                 task[key] = local.astimezone(ds.dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000+0000")
+        if "--start-date" in args:
+            task["isAllDay"] = "--all-day" in args
         if "--priority" in args:
             task["priority"] = int(self.opt(args, "--priority"))
         if "--items" in args:
@@ -485,6 +514,127 @@ class DidaClose(unittest.TestCase):
         self.assertEqual((code, [r["result"] for r in res], fake.writes), (1, ["missing", "error"], []))
 
 
+class DidaSteps(unittest.TestCase):
+    """2026-10-26: today's step of a long-term task is a child task; ticking it never closes the main task."""
+    MAIN_TITLE = "🐸甲产品陪跑：梳理与手册"
+
+    def setup_main(self):
+        fake = FakeDida()
+        main = fake.add("work", self.MAIN_TITLE, "2026-10-30T16:00:00.000+0000")
+        return fake, main
+
+    def step(self, main, **extra):
+        base = {"record_id": "rec-step", "title": "🐸读 v0.1 写评论", "date": "2026-10-26", "project_id": "work",
+                "parent_dida_task_id": main, "parent_title": self.MAIN_TITLE}
+        return todo(**{**base, **extra})
+
+    def test_step_goes_under_the_main_task_which_keeps_title_date_and_status(self):
+        fake, main = self.setup_main()
+        before = dict(fake.tasks[main])
+        code, res = sync(fake, "push", [self.step(main)])
+        self.assertEqual((code, res[0]["result"], res[0]["parent_dida_task_id"]), (0, "created", main))
+        child = fake.tasks[res[0]["dida_task_id"]]
+        self.assertEqual((child["parentId"], child["title"]), (main, "🐸读 v0.1 写评论"))
+        after = fake.tasks[main]
+        self.assertEqual({k: after[k] for k in ("title", "dueDate", "status")},
+                         {k: before[k] for k in ("title", "dueDate", "status")})
+
+    def test_ticking_the_step_leaves_the_main_task_open(self):
+        fake, main = self.setup_main()
+        step_id = sync(fake, "push", [self.step(main)])[1][0]["dida_task_id"]
+        fake.tasks[step_id].update(status=2, completedTime="2026-10-26T10:00:00.000+0000")  # the user ticks it in DIDA
+        items = [todo(record_id="rec-step", title="🐸读 v0.1 写评论", date="2026-10-26", project_id="work",
+                      dida_task_id=step_id),
+                 todo(record_id="rec-main", title=self.MAIN_TITLE, date="2026-10-31", project_id="work",
+                      dida_task_id=main)]
+        by_id = {r["record_id"]: r for r in sync(fake, "read", items)[1]}
+        self.assertEqual((by_id["rec-step"]["status"], by_id["rec-main"]["status"]), (2, 0))
+
+    def test_next_step_is_added_after_the_last_one_and_retry_does_not_duplicate(self):
+        # Adjacent case: the next step is generated only after the previous one is done.
+        fake, main = self.setup_main()
+        first = sync(fake, "push", [self.step(main)])[1][0]["dida_task_id"]
+        nxt = self.step(main, record_id="rec-next", title="读 v0.2 定剩下的项", date="2026-10-27")
+        second = sync(fake, "push", [nxt])[1][0]["dida_task_id"]
+        self.assertGreater(fake.tasks[second]["sortOrder"], fake.tasks[first]["sortOrder"])
+        code, res = sync(fake, "push", [nxt])
+        self.assertEqual((code, res[0]["result"], res[0]["dida_task_id"], fake.writes.count("create")),
+                         (0, "matched", second, 2))
+
+    def test_step_reusing_the_main_task_id_is_rejected_before_any_write(self):
+        # Counter-example: the original failure path, writing today's step onto the main task itself.
+        fake, main = self.setup_main()
+        bad = self.step(main, dida_task_id=main, fields=["title"])
+        code, res = sync(fake, "push", [bad])
+        self.assertEqual((code, res[0]["result"], fake.writes), (1, "error", []))
+        self.assertEqual(fake.tasks[main]["title"], self.MAIN_TITLE)
+
+    def test_closed_or_missing_main_task_is_reported_not_reopened(self):
+        fake, main = self.setup_main()
+        fake.tasks[main]["status"] = 2
+        self.assertEqual(sync(fake, "push", [self.step(main)])[1][0]["result"], "parent_closed")
+        self.assertEqual(sync(fake, "push", [self.step("gone")])[1][0]["result"], "parent_missing")
+        self.assertEqual((fake.writes, fake.tasks[main]["status"]), ([], 2))
+
+    def test_fourth_open_step_is_held_back(self):
+        # Same per-level cap as other subtasks: at most 3 open steps; more wait as 「下一步」 in the main task.
+        fake, main = self.setup_main()
+        for n, title in enumerate("甲乙丙"):
+            sync(fake, "push", [self.step(main, record_id=f"r{n}", title=title)])
+        code, res = sync(fake, "push", [self.step(main, record_id="r4", title="丁")])
+        self.assertEqual((res[0]["result"], fake.writes.count("create")), ("too_many_steps", 3))
+        fake.tasks[fake.tasks[main]["childIds"][0]]["status"] = 2
+        self.assertEqual(sync(fake, "push", [self.step(main, record_id="r4", title="丁")])[1][0]["result"], "created")
+
+    def test_step_takes_a_flat_checklist_only(self):
+        fake, main = self.setup_main()
+        flat = sync(fake, "push", [self.step(main, subtasks=[{"title": "甲"}, {"title": "乙"}])])[1][0]
+        self.assertEqual((flat["result"], len(fake.tasks[flat["dida_task_id"]]["items"])), ("created", 2))
+        nested = self.step(main, record_id="rec-x", title="丙", subtasks=[{"title": "甲", "subtasks": [{"title": "1"}]}])
+        self.assertEqual(sync(fake, "push", [nested])[1][0]["result"], "error")
+
+
+class DidaNoHashTags(unittest.TestCase):
+    """2026-10-26: 「#11、#43、#68」 in a description became three DIDA tags. Blocked before any write."""
+
+    def push(self, **extra):
+        fake = FakeDida()
+        code, res = sync(fake, "push", [todo(**extra)])
+        return code, res[0], fake
+
+    def test_hash_number_in_content_or_title_is_rejected_before_any_write(self):
+        for extra in ({"content": "看教程 #11、#43、#68"}, {"title": "跟练 #11"},
+                      {"subtasks": [{"title": "读 #43"}]}):
+            code, res, fake = self.push(**extra)
+            self.assertEqual((code, res["result"], fake.writes), (1, "error", []), extra)
+            self.assertIn("教程 11", res["error"])
+
+    def test_markdown_headings_and_plain_numbers_pass(self):
+        content = "## 做什么\n- 跟练教程 11、43\n\n### 做完以后\n- 在群里说一声"
+        code, res, _ = self.push(content=content)
+        self.assertEqual((code, res["result"]), (0, "created"))
+
+    def test_hash_inside_a_word_is_rejected_conservatively(self):
+        # DIDA's exact rule for a # in the middle of a word is unverified, so 「C#语言」 is blocked too.
+        # A # followed by a space (「C# 入门」) cannot start a tag and passes.
+        self.assertEqual(self.push(content="复习 C#语言")[1]["result"], "error")
+        self.assertEqual(self.push(content="复习 C# 入门")[1]["result"], "created")
+
+    def test_anchors_in_links_pass(self):
+        # Section anchors in Feishu links, bare or inside Markdown, are not tags.
+        content = ("打开 https://docs.example.com/docx/AbC123#doxcnABC\n"
+                   "- 看 [第二节](https://docs.example.com/docx/AbC123#doxcnDEF)。")
+        self.assertEqual(self.push(content=content)[1]["result"], "created")
+        self.assertEqual(self.push(content="[第二节](https://example.com/a#b) 再看 #11")[1]["result"], "error")
+
+    def test_unchanged_fields_are_not_checked_on_update(self):
+        # Counter-example: an old description is not rewritten by a date-only change, so it does not block it.
+        fake = FakeDida()
+        tid = fake.add("inbox-x", "写完提纲", "2026-10-05T16:00:00.000+0000")
+        code, res = sync(fake, "push", [todo(dida_task_id=tid, content="旧 #11", fields=["date"], date="2026-10-07")])
+        self.assertEqual((code, res[0]["result"]), (0, "updated"))
+
+
 class PrivacyScan(unittest.TestCase):
     """Public files must not carry personal resource coordinates."""
     PATTERNS = [r"feishu\.cn/(base|docx|drive|wiki)/", r"\btbl[A-Za-z0-9]{12,}", r"\b[A-Za-z0-9]{27}\b", r"\bou_[a-z0-9]{20,}", r"\binbox\d{6,}"]
@@ -492,7 +642,7 @@ class PrivacyScan(unittest.TestCase):
     def test_no_personal_tokens_outside_private_config(self):
         hits = []
         for path in ROOT.rglob("*"):
-            if not path.is_file() or path.name in {"personal-config.md", "personal-module-sync.json"} or "__pycache__" in path.parts:
+            if not path.is_file() or path.name.startswith(("personal-", "private-")) or "__pycache__" in path.parts:
                 continue
             text = path.read_text(encoding="utf-8", errors="ignore")
             for pattern in self.PATTERNS:
